@@ -15,71 +15,78 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 
-#ifndef __INET_MEDIUMVISUALIZER_H
-#define __INET_MEDIUMVISUALIZER_H
+#ifndef __INET_MEDIUMCANVASVISUALIZER_H
+#define __INET_MEDIUMCANVASVISUALIZER_H
 
-#include "inet/common/figures/TrailFigure.h"
 #include "inet/common/figures/HeatMapFigure.h"
-#include "inet/physicallayer/contract/packetlevel/ITransmission.h"
+#include "inet/common/figures/TrailFigure.h"
+#include "inet/common/geometry/common/CanvasProjection.h"
+#include "inet/common/visualizer/VisualizerBase.h"
+#include "inet/physicallayer/base/packetlevel/PhysicalLayerDefs.h"
+#include "inet/physicallayer/base/packetlevel/MediumVisualizerBase.h"
 #include "inet/physicallayer/contract/packetlevel/IRadioFrame.h"
 #include "inet/physicallayer/contract/packetlevel/IReceptionDecision.h"
-#include "inet/physicallayer/base/packetlevel/PhysicalLayerDefs.h"
+#include "inet/physicallayer/contract/packetlevel/ITransmission.h"
 
 namespace inet {
 
 namespace physicallayer {
 
-class RadioMedium;
-
 /**
  * This class provides the visualization of the communication on the radio medium.
  */
-class INET_API MediumVisualizer : public cSimpleModule
+class INET_API MediumCanvasVisualizer : public MediumVisualizerBase
 {
   protected:
     /** @name Parameters */
     //@{
     /**
-     * The corresponding radio medium is never nullptr.
+     * The 2D projection used on the canvas.
      */
-    const RadioMedium *radioMedium;
+    const CanvasProjection *canvasProjection = nullptr;
     /**
      * Determines whether the visualizer displays the ongoing communications or not.
      */
-    bool displayCommunication;
+    bool displayCommunication = false;
+    /**
+     * Displays a circle around the host submodule representing the communication range.
+     */
+    bool displayCommunicationRange = false;
+    /**
+     * Displays a circle around the host submodule representing the interference range.
+     */
+    bool displayInterferenceRange = false;
     /**
      * Determines how the ongoing communications are visualized: 3D spheres or
      * 2D circles on the X-Y plane.
      */
-    bool drawCommunication2D;
+    bool drawCommunication2D = false;
     /**
      * Specifies whether successful communication between radios leave a trail or not.
      */
-    bool leaveCommunicationTrail;
-
+    bool leaveCommunicationTrail = false;
 #if OMNETPP_CANVAS_VERSION >= 0x20140908
     /**
      * Specifies whether successful communication between radios leave a heat map or not.
      */
-    bool leaveCommunicationHeat;
+    bool leaveCommunicationHeat = false;
 #endif
-
     /**
      * Specifies the size of the communication heat map.
      */
-    int communicationHeatMapSize;
+    int communicationHeatMapSize = 100;
     //@}
 
     /** @name State */
     //@{
     /**
-     * Update canvas interval when ongoing communication exists.
-     */
-    simtime_t updateCanvasInterval;
-    /**
      * The list of ongoing transmissions.
      */
     std::vector<const ITransmission *> transmissions;
+    /**
+     * The list of ongoing transmission figures.
+     */
+    std::map<const ITransmission *, cFigure *> transmissionFigures;
     //@}
 
     /** @name Timer */
@@ -87,7 +94,7 @@ class INET_API MediumVisualizer : public cSimpleModule
     /**
      * The message that is used to update the canvas when ongoing communications exist.
      */
-    cMessage *updateCanvasTimer;
+    cMessage *updateCanvasTimer = nullptr;
     //@}
 
     /** @name Figures */
@@ -95,43 +102,47 @@ class INET_API MediumVisualizer : public cSimpleModule
     /**
      * The layer figure that contains the figures representing the ongoing communications.
      */
-    cGroupFigure *communicationLayer;
+    cGroupFigure *communicationLayer = nullptr;
     /**
      * The trail figure that contains figures representing the recent successful communications.
      */
-    TrailFigure *communicationTrail;
-
+    TrailFigure *communicationTrail = nullptr;
 #if OMNETPP_CANVAS_VERSION >= 0x20140908
     /**
      * The heat map figure that shows the recent successful communications.
      */
-    HeatMapFigure *communicationHeat;
+    HeatMapFigure *communicationHeat = nullptr;
 #endif
     //@}
 
   protected:
-    virtual int numInitStages() const override { return NUM_INIT_STAGES; }
     virtual void initialize(int stage) override;
     virtual void handleMessage(cMessage *message) override;
+
+    virtual cFigure *getCachedFigure(const ITransmission *transmission) const;
+    virtual void setCachedFigure(const ITransmission *transmission, cFigure *figure);
+    virtual void removeCachedFigure(const ITransmission *transmission);
 
     virtual void updateCanvas() const;
     virtual void scheduleUpdateCanvasTimer();
 
   public:
-    MediumVisualizer();
-    virtual ~MediumVisualizer();
+    virtual ~MediumCanvasVisualizer();
 
-    virtual void addTransmission(const ITransmission *transmission);
-    virtual void removeTransmission(const ITransmission *transmission);
+    virtual void mediumChanged() override;
+    virtual void radioAdded(const IRadio *radio) override;
+    virtual void radioRemoved(const IRadio *radio) override;
+    virtual void transmissionAdded(const ITransmission *transmission) override;
+    virtual void transmissionRemoved(const ITransmission *transmission) override;
+    virtual void packetReceived(const IReceptionDecision *decision) override;
 
-    virtual void receivePacket(const IReceptionDecision *decision);
-
-    virtual void mediumChanged() const;
+    static void setInterferenceRange(const IRadio *radio);
+    static void setCommunicationRange(const IRadio *radio);
 };
 
 } // namespace physicallayer
 
 } // namespace inet
 
-#endif // ifndef __INET_MEDIUMVISUALIZER_H
+#endif // ifndef __INET_MEDIUMCANVASVISUALIZER_H
 

@@ -25,12 +25,18 @@ import inet.physicallayer.contract.packetlevel.IObstacleLoss;
 // the position, the orientation, and the material of obstructing physical
 // objects.
 //
+// @see TracingObstacleLossVisualizer
+//
 module TracingObstacleLoss like IObstacleLoss
 {
     parameters:
         string environmentModule = "environment";     // the path of the environment model relative to the network
-        bool leaveIntersectionTrail = default(false); // true means the instersections of transmissions and physical objects will be displayed on the canvas of the radio medium
-        bool leaveFaceNormalVectorTrail = default(false); // true means the face normal vectors of instersections will be displayed on the canvas of the radio medium
+        string obstacleLossVisualizerType = default("");
         @display("i=block/control");
         @class(TracingObstacleLoss);
+    submodules:
+        obstacleLossVisualizer: TracingObstacleLossVisualizer if obstacleLossVisualizerType != "" {
+            parameters:
+                @display("p=150,100");
+        }
 }

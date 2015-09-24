@@ -21,8 +21,10 @@
  **************************************************************************/
 
 #include "inet/common/INETMath.h"
-#include "inet/environment/contract/IPhysicalEnvironment.h"
+#include "inet/common/OSGUtils.h"
 #include "inet/mobility/base/MobilityBase.h"
+#include "inet/mobility/visualizer/MobilityCanvasVisualizer.h"
+#include "inet/mobility/visualizer/MobilityOsgVisualizer.h"
 
 namespace inet {
 
@@ -70,18 +72,22 @@ void MobilityBase::initialize(int stage)
         constraintAreaMax.x = par("constraintAreaMaxX");
         constraintAreaMax.y = par("constraintAreaMaxY");
         constraintAreaMax.z = par("constraintAreaMaxZ");
-        visualRepresentation = findVisualRepresentation();
-        if (visualRepresentation) {
-            const char *s = visualRepresentation->getDisplayString().getTagArg("p", 2);
-            if (s && *s)
-                throw cRuntimeError("The coordinates of '%s' are invalid. Please remove automatic arrangement"
-                                    " (3rd argument of 'p' tag) from '@display' attribute.", visualRepresentation->getFullPath().c_str());
+        bool visualizeMobility = par("visualizeMobility");
+        if (visualizeMobility) {
+            visualRepresentation = findVisualRepresentation();
+            positionAttitudeTransform = MobilityOsgVisualizer::createOsgNode(this);
         }
         WATCH(constraintAreaMin);
         WATCH(constraintAreaMax);
         WATCH(lastPosition);
     }
     else if (stage == INITSTAGE_PHYSICAL_ENVIRONMENT_2) {
+        if (visualRepresentation != nullptr) {
+            auto visualizationTarget = visualRepresentation->getParentModule();
+            canvasProjection = CanvasProjection::getCanvasProjection(visualizationTarget->getCanvas());
+            auto scene = inet::osg::getScene(visualizationTarget);
+            scene->addChild(positionAttitudeTransform);
+        }
         initializeOrientation();
         initializePosition();
     }
@@ -100,8 +106,12 @@ void MobilityBase::setInitialPosition()
     // reading the coordinates from omnetpp.ini makes predefined scenarios a lot easier
     bool filled = false;
     if (hasPar("initFromDisplayString") && par("initFromDisplayString").boolValue() && visualRepresentation) {
-        filled = parseIntTo(visualRepresentation->getDisplayString().getTagArg("p", 0), lastPosition.x)
-            && parseIntTo(visualRepresentation->getDisplayString().getTagArg("p", 1), lastPosition.y);
+        const char *s = visualRepresentation->getDisplayString().getTagArg("p", 2);
+        if (s && *s)
+            throw cRuntimeError("The coordinates of '%s' are invalid. Please remove automatic arrangement"
+                                " (3rd argument of 'p' tag) from '@display' attribute.", visualRepresentation->getFullPath().c_str());
+        filled = parseIntTo(visualRepresentation->getDisplayString().getTagArg("p", 0), lastPosition.x) &&
+                 parseIntTo(visualRepresentation->getDisplayString().getTagArg("p", 1), lastPosition.y);
         if (filled)
             lastPosition.z = 0;
     }
@@ -147,15 +157,9 @@ void MobilityBase::handleMessage(cMessage *message)
 void MobilityBase::updateVisualRepresentation()
 {
     EV_DEBUG << "current position = " << lastPosition << endl;
-    if (hasGUI() && visualRepresentation) {
-        cFigure::Point point = IPhysicalEnvironment::computeCanvasPoint(lastPosition);
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%lf", point.x);
-        buf[sizeof(buf) - 1] = 0;
-        visualRepresentation->getDisplayString().setTagArg("p", 0, buf);
-        snprintf(buf, sizeof(buf), "%lf", point.y);
-        buf[sizeof(buf) - 1] = 0;
-        visualRepresentation->getDisplayString().setTagArg("p", 1, buf);
+    if (hasGUI() && visualRepresentation != nullptr) {
+        MobilityCanvasVisualizer::setPosition(visualRepresentation, canvasProjection->computeCanvasPoint(lastPosition));
+        MobilityOsgVisualizer::setPosition(positionAttitudeTransform, lastPosition);
     }
 }
 

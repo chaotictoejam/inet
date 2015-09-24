@@ -19,6 +19,7 @@ package inet.environment.common;
 
 import inet.environment.contract.IObjectCache;
 import inet.environment.contract.IPhysicalEnvironment;
+import inet.environment.visualizer.IPhysicalEnvironmentVisualizer;
 
 //
 // The propagation of communication signals, the movement of communicating
@@ -156,6 +157,7 @@ module PhysicalEnvironment like IPhysicalEnvironment
 {
     parameters:
         string objectCacheType = default("GridObjectCache");  // TODO should be empty by default as GridObjectCache require finite space* parameters which is not always present
+        string visualizerType = default("PhysicalEnvironmentVisualizer");
         double temperature @unit(K) = default(293K);
         double spaceMinX @unit(m) = default(-1m/0); // min x position of space, unconstrained by default (negative infinity)
         double spaceMinY @unit(m) = default(-1m/0); // min y position of space, unconstrained by default (negative infinity)
@@ -163,15 +165,15 @@ module PhysicalEnvironment like IPhysicalEnvironment
         double spaceMaxX @unit(m) = default(1m/0); // max x position of space, unconstrained by default (positive infinity)
         double spaceMaxY @unit(m) = default(1m/0); // max y position of space, unconstrained by default (positive infinity)
         double spaceMaxZ @unit(m) = default(1m/0); // max z position of space, unconstrained by default (positive infinity)
-        string viewAngle = default("z"); // the angle of view is either x, y, z, isometricN (where 0 <= N < 48 defaults to 0) or three rotation angles separated by spaces (it uses orthographic projection that is the projection is parallel to the normal of the viewing surface)
-        string viewTranslation = default("0 0"); // the translation is applied on the 2 dimensional projection
-        double axisLength @unit(m) = default(0m/0); // the length of the x, y, and z axes
         xml config = default(xml("<config/>"));
         @display("i=misc/town_s");
         @class(PhysicalEnvironment);
     submodules:
         objectCache: <objectCacheType> like IObjectCache if objectCacheType != "" {
             @display("p=100,50");
+        }
+        environmentVisualizer: <visualizerType> like IPhysicalEnvironmentVisualizer if visualizerType != "" {
+            @display("p=100,150");
         }
 }
 

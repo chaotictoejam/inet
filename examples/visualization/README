@@ -1,0 +1,3 @@
+This example demonstrates how to configure various visualizer modules. It covers
+the visualization of physical objects, mobility, transmissions and obstacle loss.
+It shows how to disable default visualizers, and how to configure new ones.

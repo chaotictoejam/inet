@@ -15,17 +15,20 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 
-package inet.physicallayer.common.packetlevel;
+package inet.physicallayer.visualizer;
 
+import inet.physicallayer.base.packetlevel.MediumVisualizerBase;
 import inet.physicallayer.contract.packetlevel.IMediumVisualizer;
 
-simple MediumVisualizer like IMediumVisualizer
+simple MediumCanvasVisualizer extends MediumVisualizerBase like IMediumVisualizer
 {
     parameters:
-        bool displayCommunication = default(false);         // when enabled the radio medium displays the ongoing transmissions
-        bool drawCommunication2D = default(false);          // when enabled the raido medium displays the ongoing transmissions as 2 dimensional rings instead of 3 dimensional spheres
+        @class(MediumCanvasVisualizer);
+        bool displayCommunication = default(true);          // when enabled the radio medium displays the ongoing transmissions
+        bool displayCommunicationRange = default(true);     // if true communication range is displayed as a blue circle around radios
+        bool displayInterferenceRange = default(true);      // if true interference range is displayed as a gray circle around radios
+        bool drawCommunication2D = default(true);           // when enabled the raido medium displays the ongoing transmissions as 2 dimensional rings instead of 3 dimensional spheres
         bool leaveCommunicationTrail = default(false);      // when enabled the radio medium displays recent successful receptions as straight blue lines from the transmission to the reception
         bool leaveCommunicationHeat = default(false);       // when enabled the radio medium displays recent successful receptions as a heat map overlay
         double updateCanvasInterval @unit(s) = default(0s); // the time interval between canvas updates when there are ongoing transmissions
-        @display("i=block/app");
 }

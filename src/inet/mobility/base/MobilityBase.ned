@@ -29,7 +29,8 @@ simple MobilityBase like IMobility
     parameters:
         @signal[mobilityStateChanged](type=MobilityBase);
         @display("i=block/cogwheel");
-        bool leaveMovementTrail = default(false);
+        bool visualizeMobility = default(true); // false means this mobility module does no visualization
+        string visualizerTargetModule = default("."); // determines the module that is moved by this mobility 
         double constraintAreaMinX @unit(m) = default(-1m/0); // min x position of the constraint area, unconstrained by default (negative infinity)
         double constraintAreaMinY @unit(m) = default(-1m/0); // min y position of the constraint area, unconstrained by default (negative infinity)
         double constraintAreaMinZ @unit(m) = default(-1m/0); // min z position of the constraint area, unconstrained by default (negative infinity)

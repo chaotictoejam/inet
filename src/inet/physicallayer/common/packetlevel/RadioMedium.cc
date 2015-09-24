@@ -46,7 +46,6 @@ RadioMedium::RadioMedium() :
     mediumLimitCache(nullptr),
     neighborCache(nullptr),
     communicationCache(nullptr),
-    mediumVisualizer(nullptr),
     transmissionCount(0),
     radioFrameSendCount(0),
     receptionComputationCount(0),
@@ -88,7 +87,6 @@ void RadioMedium::initialize(int stage)
         neighborCache = dynamic_cast<INeighborCache *>(getSubmodule("neighborCache"));
         communicationCache = check_and_cast<ICommunicationCache *>(getSubmodule("communicationCache"));
         physicalEnvironment = dynamic_cast<IPhysicalEnvironment *>(getModuleByPath("environment"));
-        mediumVisualizer = dynamic_cast<MediumVisualizer *>(getSubmodule("mediumVisualizer"));
         material = physicalEnvironment != nullptr ? physicalEnvironment->getMaterialRegistry()->getMaterial("air") : nullptr;
         const char *rangeFilterString = par("rangeFilter");
         if (!strcmp(rangeFilterString, ""))
@@ -164,8 +162,7 @@ void RadioMedium::handleMessage(cMessage *message)
 {
     if (message == removeNonInterferingTransmissionsTimer) {
         removeNonInterferingTransmissions();
-        if (mediumVisualizer != nullptr)
-            mediumVisualizer->mediumChanged();
+        fireMediumChanged();
     }
     else
         throw cRuntimeError("Unknown message");
@@ -232,8 +229,7 @@ void RadioMedium::removeNonInterferingTransmissions()
     EV_DEBUG << "Removing " << transmissionIndex << " non interfering transmissions\n";
     for (auto it = transmissions.cbegin(); it != transmissions.cbegin() + transmissionIndex; it++) {
         const ITransmission *transmission = *it;
-        if (mediumVisualizer != nullptr)
-            mediumVisualizer->removeTransmission(transmission);
+        fireTransmissionRemoved(transmission);
         communicationCache->removeTransmission(transmission);
         delete transmission;
     }
@@ -416,6 +412,7 @@ void RadioMedium::addRadio(const IRadio *radio)
         radioModule->subscribe(IRadio::listeningChangedSignal, this);
     if (macAddressFilter)
         getContainingNode(radioModule)->subscribe(NF_INTERFACE_CONFIG_CHANGED, this);
+    fireRadioAdded(radio);
 }
 
 void RadioMedium::removeRadio(const IRadio *radio)
@@ -438,6 +435,7 @@ void RadioMedium::removeRadio(const IRadio *radio)
         radioModule->unsubscribe(IRadio::listeningChangedSignal, this);
     if (macAddressFilter)
         getContainingNode(radioModule)->unsubscribe(NF_INTERFACE_CONFIG_CHANGED, this);
+    fireRadioRemoved(radio);
 }
 
 void RadioMedium::addTransmission(const IRadio *transmitterRadio, const ITransmission *transmission)
@@ -464,8 +462,7 @@ void RadioMedium::addTransmission(const IRadio *transmitterRadio, const ITransmi
         Enter_Method_Silent();
         scheduleAt(communicationCache->getCachedInterferenceEndTime(transmissions[0]), removeNonInterferingTransmissionsTimer);
     }
-    if (mediumVisualizer != nullptr)
-        mediumVisualizer->addTransmission(transmission);
+    fireTransmissionAdded(transmission);
 }
 
 void RadioMedium::sendToAffectedRadios(IRadio *radio, const IRadioFrame *frame)
@@ -544,8 +541,7 @@ cPacket *RadioMedium::receivePacket(const IRadio *radio, IRadioFrame *radioFrame
     communicationCache->removeCachedDecision(radio, transmission);
     cPacket *macFrame = decision->getMacFrame()->dup();
     macFrame->setControlInfo(const_cast<ReceptionIndication *>(decision->getIndication()));
-    if (mediumVisualizer != nullptr)
-        mediumVisualizer->receivePacket(decision);
+    firePacketReceived(decision);
     delete decision;
     return macFrame;
 }
@@ -586,8 +582,7 @@ bool RadioMedium::isReceptionAttempted(const IRadio *radio, const ITransmission 
     bool isReceptionAttempted = radio->getReceiver()->computeIsReceptionAttempted(listening, reception, interference);
     delete interference;
     EV_DEBUG << "Receiving " << transmission << " from medium by " << radio << " arrives as " << reception << " and results in reception is " << (isReceptionAttempted ? "attempted" : "ignored") << endl;
-    if (mediumVisualizer != nullptr)
-        mediumVisualizer->mediumChanged();
+    fireMediumChanged();
     return isReceptionAttempted;
 }
 
@@ -633,6 +628,42 @@ void RadioMedium::receiveSignal(cComponent *source, simsignal_t signal, long val
             }
         }
     }
+}
+
+void RadioMedium::fireMediumChanged() const
+{
+    for (auto listener : listeners)
+        listener->mediumChanged();
+}
+
+void RadioMedium::fireRadioAdded(const IRadio *radio) const
+{
+    for (auto listener : listeners)
+        listener->radioAdded(radio);
+}
+
+void RadioMedium::fireRadioRemoved(const IRadio *radio) const
+{
+    for (auto listener : listeners)
+        listener->radioRemoved(radio);
+}
+
+void RadioMedium::fireTransmissionAdded(const ITransmission *transmission) const
+{
+    for (auto listener : listeners)
+        listener->transmissionAdded(transmission);
+}
+
+void RadioMedium::fireTransmissionRemoved(const ITransmission *transmission) const
+{
+    for (auto listener : listeners)
+        listener->transmissionRemoved(transmission);
+}
+
+void RadioMedium::firePacketReceived(const IReceptionDecision *decision) const
+{
+    for (auto listener : listeners)
+        listener->packetReceived(decision);
 }
 
 } // namespace physicallayer

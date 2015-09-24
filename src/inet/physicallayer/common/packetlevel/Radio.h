@@ -188,7 +188,6 @@ class INET_API Radio : public PhysicalLayerBase, public virtual IRadio
 
     virtual bool isListeningPossible();
     virtual void updateTransceiverState();
-    virtual void updateDisplayString();
 
   public:
     Radio();

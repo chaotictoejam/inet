@@ -51,6 +51,7 @@ module NodeBase like INetworkNode
         int numRadios = default(0);               // the number of radios in the router. by default no wireless
         int numPcapRecorders = default(0); // no of PcapRecorders.
         int numTunInterfaces = default(0);
+        string visualization = default("");
         string mobilityType = default(numRadios > 0 ? "StationaryMobility" : "");
         string networkLayerType = default("IPv4NetworkLayer");
         string routingTableType = default("IPv4RoutingTable");
@@ -58,6 +59,7 @@ module NodeBase like INetworkNode
         bool multicastForwarding = default(false);
         string energyStorageType = default("");
         string energyGeneratorType = default("");
+        mobility.visualizerTargetModule = default("^");
         routingTable.forwarding = forwarding;
         routingTable.multicastForwarding = multicastForwarding;   // for IPv4, IPv6, Generic
         *.interfaceTableModule = default(absPath(".interfaceTable"));
