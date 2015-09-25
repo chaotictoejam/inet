@@ -137,6 +137,8 @@ void BasicContentionTx::handleWithFSM(EventType event, cMessage *msg)
                     IFS_AND_BACKOFF,
                     scheduleTransmissionRequest();
                     );
+            FSMA_Ignore_Event(event==TRANSMISSION_FINISHED);
+            FSMA_Ignore_Event(event==CORRUPTED_FRAME_RECEIVED);         //TODO switch to eifs
             FSMA_Fail_On_Unhandled_Event();
         }
         FSMA_State(IFS_AND_BACKOFF) {
