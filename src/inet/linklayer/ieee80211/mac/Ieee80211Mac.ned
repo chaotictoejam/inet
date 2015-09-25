@@ -92,7 +92,7 @@ simple Ieee80211Mac extends MACProtocolBase like IIeee80211Mac
         double controlBitrate @unit("bps") = default(1e6bps); // used for control frames
 
         int mtu @unit("B") = default(2304B);
-        double slotTime @unit("s") = default(9us);
+        double slotTime @unit("s") = default(contains("a,n", opMode) ? 9us : (opMode == "b") ? 20us : (bitrate <= 11Mbps) ? 20us : 9us);      //TODO based on opMode and bitrate parameters
         int rtsThresholdBytes @unit("B") = default(2346B); // longer messages will be sent using RTS/CTS
         int retryLimit = default(-1); // maximum number of retries per message, -1 means default
         int cwMinData = default(-1); // contention window for normal data frames, -1 means default
