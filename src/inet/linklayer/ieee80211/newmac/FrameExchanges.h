@@ -19,17 +19,11 @@
 #define __INET_FRAMEEXCHANGES_H
 
 #include "FrameExchange.h"
-#include "inet/physicallayer/ieee80211/mode/IIeee80211Mode.h"
 
 namespace inet {
 namespace ieee80211 {
 
 class Ieee80211DataOrMgmtFrame;
-
-//using namespace inet::physicallayer;
-using inet::physicallayer::AccessCategory;
-//using inet::physicallayer::AccessCategory;
-//typedef inet::physicallayer::AccessCategory AccessCategory;
 
 // just to demonstrate the use FsmBasedFrameExchange; otherwise we prefer the step-based because it's simpler
 class SendDataWithAckFsmBasedFrameExchange : public FsmBasedFrameExchange
@@ -83,23 +77,27 @@ class SendDataWithRtsCtsFrameExchange : public StepBasedFrameExchange
         virtual void processTimeout(int step) override;
         virtual void processInternalCollision(int step) override;
     public:
-        SendDataWithRtsCtsFrameExchange(cSimpleModule *ownerModule, IUpperMacContext *context, IFinishedCallback *callback, Ieee80211DataOrMgmtFrame *dataFrame, int txIndex=0, int accessCategory=AccessCategory::AC_LEGACY);
+        SendDataWithRtsCtsFrameExchange(cSimpleModule *ownerModule, IUpperMacContext *context, IFinishedCallback *callback, Ieee80211DataOrMgmtFrame *dataFrame, int txIndex, int accessCategory);
         ~SendDataWithRtsCtsFrameExchange();
 };
 
-class SendMulticastDataFrameExchange : public StepBasedFrameExchange
+class SendMulticastDataFrameExchange : public FrameExchange
 {
     protected:
-        Ieee80211DataOrMgmtFrame *dataFrame = nullptr;
-        int retryCount = 0; // internal collisions are still possible (EDCA)
+        Ieee80211DataOrMgmtFrame *dataFrame;
+        int txIndex;
+        int accessCategory;
+        int retryCount = 0;
     protected:
-        virtual void doStep(int step) override;
-        virtual bool processReply(int step, Ieee80211Frame *frame) override;
-        virtual void processTimeout(int step) override;
-        virtual void processInternalCollision(int step) override;
+        virtual void transmitFrame();
     public:
         SendMulticastDataFrameExchange(cSimpleModule *ownerModule, IUpperMacContext *context, IFinishedCallback *callback, Ieee80211DataOrMgmtFrame *dataFrame, int txIndex, int accessCategory);
         ~SendMulticastDataFrameExchange();
+        virtual void start() override;
+        virtual bool lowerFrameReceived(Ieee80211Frame* frame) override;
+        virtual void transmissionComplete(int txIndex) override;
+        virtual void internalCollision(int txIndex) override;
+        virtual void handleSelfMessage(cMessage* timer) override;
 };
 
 } // namespace ieee80211

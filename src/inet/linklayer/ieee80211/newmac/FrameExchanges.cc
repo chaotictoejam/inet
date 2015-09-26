@@ -227,10 +227,8 @@ void SendDataWithRtsCtsFrameExchange::processInternalCollision(int step)
 //------------------------------
 
 SendMulticastDataFrameExchange::SendMulticastDataFrameExchange(cSimpleModule *ownerModule, IUpperMacContext *context, IFinishedCallback *callback, Ieee80211DataOrMgmtFrame *dataFrame, int txIndex, int accessCategory) :
-    StepBasedFrameExchange(ownerModule, context, callback, txIndex, accessCategory), dataFrame(dataFrame)
+    FrameExchange(ownerModule, context, callback), dataFrame(dataFrame), txIndex(txIndex), accessCategory(accessCategory)
 {
-    ASSERT(context->isBroadcast(dataFrame) || context->isMulticast(dataFrame));
-    dataFrame->setDuration(0);
 }
 
 SendMulticastDataFrameExchange::~SendMulticastDataFrameExchange()
@@ -238,32 +236,41 @@ SendMulticastDataFrameExchange::~SendMulticastDataFrameExchange()
     delete dataFrame;
 }
 
-void SendMulticastDataFrameExchange::doStep(int step)
+void SendMulticastDataFrameExchange::start()
 {
-    switch (step) {
-        case 0: transmitMulticastContentionFrame(dataFrame->dup()); break;
-        case 1: succeed(); break;
-        default: ASSERT(false);
+    transmitFrame();
+}
+
+bool SendMulticastDataFrameExchange::lowerFrameReceived(Ieee80211Frame *frame)
+{
+    return false;  // not ours
+}
+
+void SendMulticastDataFrameExchange::transmissionComplete(int txIndex)
+{
+    reportSuccess();
+}
+
+void SendMulticastDataFrameExchange::internalCollision(int txIndex)
+{
+    if (++retryCount < context->getShortRetryLimit()) {
+        dataFrame->setRetry(true);
+        transmitFrame();
+    }
+    else {
+        reportFailure();
     }
 }
 
-bool SendMulticastDataFrameExchange::processReply(int step, Ieee80211Frame *frame)
-{
-    ASSERT(false);
-    return false;
-}
-
-void SendMulticastDataFrameExchange::processTimeout(int step)
+void SendMulticastDataFrameExchange::handleSelfMessage(cMessage *msg)
 {
     ASSERT(false);
 }
 
-void SendMulticastDataFrameExchange::processInternalCollision(int step)
+void SendMulticastDataFrameExchange::transmitFrame()
 {
-    switch (step) {
-        case 0: if (++retryCount < context->getShortRetryLimit()) {dataFrame->setRetry(true); gotoStep(0);} else fail(); break;
-        default: ASSERT(false);
-    }
+    int ac = accessCategory;  // abbreviate
+    context->transmitContentionFrame(txIndex, dataFrame->dup(), context->getAifsTime(ac), context->getEifsTime(ac), context->getCwMulticast(ac), context->getCwMulticast(ac), context->getSlotTime(), 0, this);
 }
 
 } // namespace ieee80211
