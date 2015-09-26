@@ -41,22 +41,25 @@ class INET_API UpperMacContext : public cOwnedObject, public IUpperMacContext
         const IIeee80211Mode *controlFrameMode = nullptr;
         int shortRetryLimit;
         int rtsThreshold;
+        bool useEDCA;
         IImmediateTx *immediateTx;
         IContentionTx **contentionTx;
 
     protected:
+        AccessCategory mapAC(int accessCategory) const;
         Ieee80211Frame *setBitrate(Ieee80211Frame *frame, const IIeee80211Mode *mode) const;
 
     public:
         UpperMacContext(const MACAddress& address, const IIeee80211Mode *dataFrameMode,
                 const IIeee80211Mode *basicFrameMode, const IIeee80211Mode *controlFrameMode,
-                int shortRetryLimit, int rtsThreshold, IImmediateTx *immediateTx, IContentionTx **contentionTx);
+                int shortRetryLimit, int rtsThreshold, bool useEDCA, IImmediateTx *immediateTx, IContentionTx **contentionTx);
         virtual ~UpperMacContext() {}
 
         virtual const char *getName() const override; // cObject
         virtual std::string info() const override; // cObject
 
         virtual const MACAddress& getAddress() const override;
+        virtual int getNumAccessCategories() const override;
 
         virtual simtime_t getSlotTime() const override;
         virtual simtime_t getAifsTime(int accessCategory) const override;

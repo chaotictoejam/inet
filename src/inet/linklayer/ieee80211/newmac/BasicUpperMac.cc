@@ -85,7 +85,9 @@ IUpperMacContext *BasicUpperMac::createContext()
         shortRetryLimit = 7;
     ASSERT(shortRetryLimit > 0);
 
-    return new UpperMacContext(address, dataFrameMode, basicFrameMode, controlFrameMode, shortRetryLimit, rtsThreshold, immediateTx, contentionTx);
+    bool useEDCA = false; //TODO
+
+    return new UpperMacContext(address, dataFrameMode, basicFrameMode, controlFrameMode, shortRetryLimit, rtsThreshold, useEDCA, immediateTx, contentionTx);
 }
 
 void BasicUpperMac::handleMessage(cMessage *msg)

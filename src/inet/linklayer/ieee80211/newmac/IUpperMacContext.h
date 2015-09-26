@@ -38,6 +38,7 @@ class IUpperMacContext
         virtual ~IUpperMacContext() {}
 
         virtual const MACAddress& getAddress() const = 0;
+        virtual int getNumAccessCategories() const = 0;
 
         virtual simtime_t getSlotTime() const = 0;
         virtual simtime_t getAifsTime(int accessCategory) const = 0;
