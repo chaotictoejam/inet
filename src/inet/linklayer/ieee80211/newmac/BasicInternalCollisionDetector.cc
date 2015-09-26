@@ -74,10 +74,10 @@ void BasicInternalCollisionDetector::handleMessage(cMessage *msg)
     ASSERT(msg == timer);
 
     // from the ones with the current time as timestamp: grant transmission to the
-    // highest priority one, signal internal collision to the others
+    // highest priority one (largest txIndex), and signal internal collision to the others
     simtime_t now = simTime();
     bool granted = false;
-    for (int i = 0; i <= maxTxIndex; i++) {
+    for (int i = maxTxIndex; i >= 0; i--) {
         if (txTime[i] == now) {
             if (!granted) {
                 callback[i]->transmissionGranted(i);
