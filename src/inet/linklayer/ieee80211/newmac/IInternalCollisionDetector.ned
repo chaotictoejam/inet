@@ -21,6 +21,6 @@ package inet.linklayer.ieee80211.newmac;
 //
 // TODO
 //
-moduleinterface ICollisionController
+moduleinterface IInternalCollisionDetector
 {
 }

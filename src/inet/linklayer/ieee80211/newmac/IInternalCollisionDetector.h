@@ -15,15 +15,15 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
 
-#ifndef __INET_ICOLLISIONCONTROLLER_H
-#define __INET_ICOLLISIONCONTROLLER_H
+#ifndef __INET_IINTERNALCOLLISIONDETECTOR_H
+#define __INET_IINTERNALCOLLISIONDETECTOR_H
 
 #include "inet/common/INETDefs.h"
 
 namespace inet {
 namespace ieee80211 {
 
-class ICollisionController
+class IInternalCollisionDetector
 {
     public:
         class ICallback {

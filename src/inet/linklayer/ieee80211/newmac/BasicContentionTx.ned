@@ -26,6 +26,6 @@ simple BasicContentionTx like IContentionTx
     parameters:
         string macModule;
         string upperMacModule;
-        string collisionControllerModule;
+        string collisionDetectorModule;
         @display("i=block/tx");
 }

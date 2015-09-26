@@ -19,7 +19,7 @@
 #define __INET_BASICCONTENTIONTX_H
 
 #include "IContentionTx.h"
-#include "ICollisionController.h"
+#include "IInternalCollisionDetector.h"
 #include "inet/physicallayer/contract/packetlevel/IRadio.h"
 
 namespace inet {
@@ -35,7 +35,7 @@ class IMacRadioInterface;
 //TODO fsm is wrong wrt channelLastBusyTime (not all cases handled) -- FIGURE OUT HOW TO HANDLE IT WHEN CHANNEL IS LONG FREE WHEN WE WANT TO TRANSMIT!
 //TODO needs to be decided whether slots for different ACs are aligned; and if not, whether "within a slot time" is a good definition for collision!
 //TODO NOTE: latter is interlinked with the prev question -- what if we could transmit immediately? we should wait for 1 slot time to make sure we don't collide with a higher priority process??
-class BasicContentionTx : public cSimpleModule, public IContentionTx, protected ICollisionController::ICallback
+class BasicContentionTx : public cSimpleModule, public IContentionTx, protected IInternalCollisionDetector::ICallback
 {
     public:
         enum State { IDLE, DEFER, IFS_AND_BACKOFF, TRANSMIT };
@@ -44,7 +44,7 @@ class BasicContentionTx : public cSimpleModule, public IContentionTx, protected 
     protected:
         IMacRadioInterface *mac;
         IUpperMac *upperMac;
-        ICollisionController *collisionController;  // optional
+        IInternalCollisionDetector *collisionDetector;  // optional
         int txIndex;
 
         // current transmission's parameters

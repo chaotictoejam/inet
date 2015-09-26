@@ -15,15 +15,15 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
 
-#ifndef __INET_BASICCOLLISIONCONTROLLER_H
-#define __INET_BASICCOLLISIONCONTROLLER_H
+#ifndef __INET_BASICINTERNALCOLLISIONDETECTOR_H
+#define __INET_BASICINTERNALCOLLISIONDETECTOR_H
 
-#include "ICollisionController.h"
+#include "IInternalCollisionDetector.h"
 
 namespace inet {
 namespace ieee80211 {
 
-class BasicCollisionController : public cSimpleModule, public ICollisionController
+class BasicInternalCollisionDetector : public cSimpleModule, public IInternalCollisionDetector
 {
     private:
         static simtime_t MAX_TIME;   // used as the "invalid" value
@@ -37,8 +37,8 @@ class BasicCollisionController : public cSimpleModule, public ICollisionControll
         virtual void handleMessage(cMessage* msg) override;
         void reschedule();
     public:
-        BasicCollisionController();
-        ~BasicCollisionController();
+        BasicInternalCollisionDetector();
+        ~BasicInternalCollisionDetector();
         virtual void scheduleTransmissionRequest(int txIndex, simtime_t txStartTime, ICallback *callback) override;
         virtual void cancelTransmissionRequest(int txIndex) override;
 };

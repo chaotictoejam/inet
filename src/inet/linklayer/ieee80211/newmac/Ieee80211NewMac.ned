@@ -94,13 +94,13 @@ module Ieee80211NewMac extends MACProtocolBase like IIeee80211Mac
         string immediateTxModule = ".iTx";
         string firstContentionTxModule = ".cTx[0]";
         int numContentionTx = default(4);
-        string collisionControllerModule = ".ctrl";
+        string collisionDetectorModule = ".coll";
         *.macModule = "^";
         *.upperMacModule = "^" + upperMacModule;
         *.rxModule = "^" + rxModule;
         *.immediateTxModule = "^" + immediateTxModule;
         *.firstContentionTxModule = "^" + firstContentionTxModule;
-        *.collisionControllerModule = "^" + collisionControllerModule;
+        *.collisionDetectorModule = "^" + collisionDetectorModule;
 
         @display("i=block/layer");
         @class(Ieee80211NewMac);
@@ -122,12 +122,12 @@ module Ieee80211NewMac extends MACProtocolBase like IIeee80211Mac
         rx: <default("BasicRx")> like IRx {
             @display("p=380,200");
         }
-        ctrl: <default("BasicCollisionController")> like ICollisionController {
+        coll: <default("BasicInternalCollisionDetector")> like IInternalCollisionDetector {
             @display("p=208,300");
         }
 }
 
-// Delegate some upperMac parameters to Ieee80211NewMac, to be more compatible with the old MAC  
+// Delegate some upperMac parameters to Ieee80211NewMac, to be more compatible with the old MAC
 module Ieee80211CompatibleNewMac extends Ieee80211NewMac
 {
     parameters:

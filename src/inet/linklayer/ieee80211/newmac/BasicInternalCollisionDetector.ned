@@ -21,7 +21,7 @@ package inet.linklayer.ieee80211.newmac;
 //
 // TODO
 //
-simple BasicCollisionController like ICollisionController
+simple BasicInternalCollisionDetector like IInternalCollisionDetector
 {
     parameters:
         @display("i=block/control");

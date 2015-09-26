@@ -15,16 +15,16 @@
 // along with this program.  If not, see http://www.gnu.org/licenses/.
 //
 
-#include "BasicCollisionController.h"
+#include "BasicInternalCollisionDetector.h"
 
 namespace inet {
 namespace ieee80211 {
 
-Define_Module(BasicCollisionController);
+Define_Module(BasicInternalCollisionDetector);
 
-simtime_t BasicCollisionController::MAX_TIME;
+simtime_t BasicInternalCollisionDetector::MAX_TIME;
 
-BasicCollisionController::BasicCollisionController()
+BasicInternalCollisionDetector::BasicInternalCollisionDetector()
 {
     MAX_TIME = SimTime::getMaxTime();
     for (int i = 0; i < MAX_NUM_TX; i++)
@@ -33,12 +33,12 @@ BasicCollisionController::BasicCollisionController()
     timer->setSchedulingPriority(1000); // low priority, i.e. processed later than most events for the same time
 }
 
-BasicCollisionController::~BasicCollisionController()
+BasicInternalCollisionDetector::~BasicInternalCollisionDetector()
 {
     cancelAndDelete(timer);
 }
 
-void BasicCollisionController::scheduleTransmissionRequest(int txIndex, simtime_t txStartTime, ICallback *cb)
+void BasicInternalCollisionDetector::scheduleTransmissionRequest(int txIndex, simtime_t txStartTime, ICallback *cb)
 {
     Enter_Method("scheduleTransmissionRequest(%d)", txIndex);
     ASSERT(txIndex >=0 && txIndex < MAX_NUM_TX);
@@ -61,7 +61,7 @@ void BasicCollisionController::scheduleTransmissionRequest(int txIndex, simtime_
     }
 }
 
-void BasicCollisionController::cancelTransmissionRequest(int txIndex)
+void BasicInternalCollisionDetector::cancelTransmissionRequest(int txIndex)
 {
     Enter_Method("cancelTransmissionRequest(%d)", txIndex);
     ASSERT(txIndex >=0 && txIndex < MAX_NUM_TX);
@@ -69,7 +69,7 @@ void BasicCollisionController::cancelTransmissionRequest(int txIndex)
     reschedule();
 }
 
-void BasicCollisionController::handleMessage(cMessage *msg)
+void BasicInternalCollisionDetector::handleMessage(cMessage *msg)
 {
     ASSERT(msg == timer);
 
@@ -96,7 +96,7 @@ void BasicCollisionController::handleMessage(cMessage *msg)
     timeLastProcessed = now;
 }
 
-void BasicCollisionController::reschedule()
+void BasicInternalCollisionDetector::reschedule()
 {
     // choose smallest time
     simtime_t nextTxTime = MAX_TIME;

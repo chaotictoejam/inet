@@ -51,10 +51,10 @@ void BasicContentionTx::initialize()
 {
     mac = check_and_cast<IMacRadioInterface *>(getModuleByPath(par("macModule")));
     upperMac = check_and_cast<IUpperMac *>(getModuleByPath(par("upperMacModule")));
-    collisionController = dynamic_cast<ICollisionController *>(getModuleByPath(par("collisionControllerModule")));
+    collisionDetector = dynamic_cast<IInternalCollisionDetector *>(getModuleByPath(par("collisionDetectorModule")));
 
     txIndex = getIndex();
-    if (txIndex > 0 && !collisionController)
+    if (txIndex > 0 && !collisionDetector)
         throw cRuntimeError("No collision controller module -- one is needed when multiple ContentionTx instances are present");
 
     fsm.setName("fsm");
@@ -221,12 +221,12 @@ void BasicContentionTx::internalCollision(int txIndex)
 
 void BasicContentionTx::scheduleTransmissionRequestFor(simtime_t txStartTime)
 {
-    collisionController->scheduleTransmissionRequest(txIndex, txStartTime, this);
+    collisionDetector->scheduleTransmissionRequest(txIndex, txStartTime, this);
 }
 
 void BasicContentionTx::cancelTransmissionRequest()
 {
-    collisionController->cancelTransmissionRequest(txIndex);
+    collisionDetector->cancelTransmissionRequest(txIndex);
 }
 
 void BasicContentionTx::scheduleTransmissionRequest()
