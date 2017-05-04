@@ -54,7 +54,7 @@ class INET_API IMobility
     virtual Coord getCurrentSpeed() = 0;
 
     /** @brief Returns the current acceleration at the current simulation time. */
-    // virtual Coord getCurrentAcceleration() = 0;
+    virtual Coord getCurrentAcceleration() = 0;
 
     /** @brief Returns the current angular position at the current simulation time. */
     virtual EulerAngles getCurrentAngularPosition() = 0;

@@ -51,6 +51,9 @@ class INET_API MovingMobilityBase : public MobilityBase
     /** @brief The last speed that was reported at lastUpdate. */
     Coord lastSpeed;
 
+    /** @brief The last acceleration that was reported at lastUpdate. */
+    Coord lastAcceleration;
+
     /** @brief The simulation time when the mobility state was last updated. */
     simtime_t lastUpdate;
 
@@ -89,6 +92,9 @@ class INET_API MovingMobilityBase : public MobilityBase
 
     /** @brief Returns the current speed at the current simulation time. */
     virtual Coord getCurrentSpeed() override;
+
+    /** @brief Returns the current acceleration at the current simulation time. */
+    virtual Coord getCurrentAcceleration() override;
 
     /** @brief Returns the current angular position at the current simulation time. */
     virtual EulerAngles getCurrentAngularPosition() override;

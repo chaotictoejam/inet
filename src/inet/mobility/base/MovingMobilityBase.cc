@@ -115,5 +115,11 @@ EulerAngles MovingMobilityBase::getCurrentAngularPosition()
     return lastOrientation;
 }
 
+Coord MovingMobilityBase::getCurrentAcceleration()
+{
+    moveAndUpdate();
+    return lastAcceleration;
+}
+
 } // namespace inet
 

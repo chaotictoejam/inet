@@ -53,6 +53,7 @@ class INET_API StationaryMobility : public MobilityBase
 
     virtual Coord getConstraintAreaMax() const override { return lastPosition; }
     virtual Coord getConstraintAreaMin() const override { return lastPosition; }
+    virtual Coord getCurrentAcceleration() override { return Coord::ZERO; }
 };
 
 } // namespace inet
