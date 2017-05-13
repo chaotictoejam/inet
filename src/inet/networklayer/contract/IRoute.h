@@ -50,6 +50,8 @@ class INET_API IRoute
         MANET2,    ///< managed by manet, search approximate address
         DYMO,    ///< managed by DYMO routing
         AODV,    ///< managed by AODV routing
+        AODVWR,    ///< managed by AODVWR routing
+        GPSRWR,    ///< managed by GPSRWR routing
     };
 
     /** Field codes for NB_ROUTE_CHANGED notifications */
