@@ -35,6 +35,16 @@ namespace visualizer {
 
 Define_Module(NetworkRouteCanvasVisualizer);
 
+bool NetworkRouteCanvasVisualizer::isPathStart(cModule *module) const
+{
+#ifdef WITH_IPv4
+    if (dynamic_cast<IPv4 *>(module) != nullptr)
+        return true;
+#endif
+
+    return false;
+}
+
 bool NetworkRouteCanvasVisualizer::isPathEnd(cModule *module) const
 {
 #ifdef WITH_IPv4
@@ -57,13 +67,18 @@ bool NetworkRouteCanvasVisualizer::isPathElement(cModule *module) const
         return true;
 #endif
 
+#ifdef WITH_IPv4
+    if (dynamic_cast<IPv4 *>(module) != nullptr)
+        return true;
+#endif
+
     return false;
 }
 
-const PathCanvasVisualizerBase::PathVisualization *NetworkRouteCanvasVisualizer::createPathVisualization(const std::vector<int>& path) const
+const PathCanvasVisualizerBase::PathVisualization *NetworkRouteCanvasVisualizer::createPathVisualization(const std::vector<int>& path, cPacket *packet) const
 {
-    auto pathVisualization = static_cast<const PathCanvasVisualization *>(PathCanvasVisualizerBase::createPathVisualization(path));
-    pathVisualization->figure->setTags("network_route");
+    auto pathVisualization = static_cast<const PathCanvasVisualization *>(PathCanvasVisualizerBase::createPathVisualization(path, packet));
+    pathVisualization->figure->setTags((std::string("network_route ") + tags).c_str());
     pathVisualization->figure->setTooltip("This polyline arrow represents a recently active network route between two network nodes");
     pathVisualization->shiftPriority = 3;
     return pathVisualization;

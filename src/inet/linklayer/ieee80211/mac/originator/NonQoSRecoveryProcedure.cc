@@ -48,21 +48,17 @@ void NonQoSRecoveryProcedure::initialize(int stage)
 void NonQoSRecoveryProcedure::incrementStationSrc(StationRetryCounters *stationCounters)
 {
     stationCounters->incrementStationShortRetryCount();
-    if (stationCounters->getStationShortRetryCount() == shortRetryLimit) { // 9.3.3 Random backoff time
+    if (stationCounters->getStationShortRetryCount() == shortRetryLimit) // 9.3.3 Random backoff time
         resetContentionWindow();
-        stationCounters->resetStationShortRetryCount();
-    }
     else
         cwCalculator->incrementCw();
 }
 
 void NonQoSRecoveryProcedure::incrementStationLrc(StationRetryCounters *stationCounters)
 {
-    stationCounters->incrementStationShortRetryCount();
-    if (stationCounters->getStationLongRetryCount() == longRetryLimit) { // 9.3.3 Random backoff time
+    stationCounters->incrementStationLongRetryCount();
+    if (stationCounters->getStationLongRetryCount() == longRetryLimit) // 9.3.3 Random backoff time
         resetContentionWindow();
-        stationCounters->resetStationLongRetryCount();
-    }
     else
         cwCalculator->incrementCw();
 }
@@ -204,6 +200,17 @@ int NonQoSRecoveryProcedure::getRetryCount(Ieee80211DataOrMgmtFrame* frame)
         return getRc(frame, shortRetryCounter);
 }
 
+
+int NonQoSRecoveryProcedure::getShortRetryCount(Ieee80211DataOrMgmtFrame* frame)
+{
+    return getRc(frame, shortRetryCounter);
+}
+
+int NonQoSRecoveryProcedure::getLongRetryCount(Ieee80211DataOrMgmtFrame* frame)
+{
+    return getRc(frame, longRetryCounter);
+}
+
 void NonQoSRecoveryProcedure::resetContentionWindow()
 {
     cwCalculator->resetCw();
@@ -220,13 +227,12 @@ int NonQoSRecoveryProcedure::getRc(Ieee80211DataOrMgmtFrame* frame, std::map<Seq
     if (count != retryCounter.end())
         return count->second;
     else
-        throw cRuntimeError("The retry counter entry doesn't exist for message id: %d", frame->getId());
+        return 0;
 }
 
 bool NonQoSRecoveryProcedure::isMulticastFrame(Ieee80211Frame* frame)
 {
-    if (dynamic_cast<Ieee80211OneAddressFrame*>(frame)) {
-        Ieee80211OneAddressFrame *oneAddressFrame = dynamic_cast<Ieee80211OneAddressFrame*>(frame);
+    if (Ieee80211OneAddressFrame *oneAddressFrame = dynamic_cast<Ieee80211OneAddressFrame*>(frame)) {
         return oneAddressFrame->getReceiverAddress().isMulticast();
     }
     return false;
@@ -234,4 +240,3 @@ bool NonQoSRecoveryProcedure::isMulticastFrame(Ieee80211Frame* frame)
 
 } /* namespace ieee80211 */
 } /* namespace inet */
-

@@ -1,5 +1,34 @@
 ====== inet-3.x ======
 
+2017-07-06  ------ inet-3.6.1 released ------
+
+2017-06-09  ------ inet-3.6.0 released ------
+
+2017-06-06  Levente Mészáros
+
+	Added tags parameter.
+
+2017-06-01  Zoltan Bojthe
+
+	CID 179293 Unchecked dynamic_cast
+
+2017-05-30  Levente Mészáros
+
+	Added a separate annotation figure child.
+
+2017-05-25  Levente Mészáros
+
+	Fixed moduleFilter in MobilityCanvasVisualizer.
+	Changed NetworkNodeCanvasVisualization to cPanelFigure to solve zooming issues.
+
+2017-02-13  Levente Mészáros
+
+	Changed radius of orientation visualization to use submodule size.
+
+2017-02-09  Levente Mészáros
+
+	Cleaned up MobilityVisualizer lineStyle and lineWidth parameters.
+
 2017-02-20  ------ inet-3.5.0 released ------
 
 2016-10-20  Rudolf Hornig

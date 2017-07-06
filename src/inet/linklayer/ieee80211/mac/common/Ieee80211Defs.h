@@ -36,12 +36,14 @@ static bool isSequenceNumberLess(SequenceNumber number1, SequenceNumber number2,
         return d1 < d2;
     else if (d1 < range && d2 >= range)
         return false;
-    else if (d1 >= range && d1 < range)
+    else if (d1 >= range && d2 < range)
         return true;
     else if (d1 >= range && d2 >= range)
         return d1 < d2;
-    else
+    else {
         ASSERT(false);
+        return false; // should never happen
+    }
 }
 
 } // namespace ieee80211

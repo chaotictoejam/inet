@@ -19,8 +19,15 @@
 #include "inet/common/NotifierConsts.h"
 #include "inet/networklayer/common/InterfaceEntry.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
+#ifdef WITH_GENERIC
+#include "inet/networklayer/generic/GenericNetworkProtocolInterfaceData.h"
+#endif // WITH_GENERIC
+#ifdef WITH_IPv4
 #include "inet/networklayer/ipv4/IPv4InterfaceData.h"
+#endif // WITH_IPv4
+#ifdef WITH_IPv6
 #include "inet/networklayer/ipv6/IPv6InterfaceData.h"
+#endif // WITH_IPv6
 #include "inet/visualizer/base/InterfaceTableVisualizerBase.h"
 
 namespace inet {
@@ -35,21 +42,49 @@ InterfaceTableVisualizerBase::InterfaceVisualization::InterfaceVisualization(int
 
 const char *InterfaceTableVisualizerBase::DirectiveResolver::resolveDirective(char directive)
 {
+    result = "";
     switch (directive) {
         case 'N':
             result = interfaceEntry->getName();
             break;
-        case 'n':
-            result = interfaceEntry->getNetworkAddress().str();
-            break;
-        case '4':
-            result = interfaceEntry->ipv4Data() == nullptr ? "" : interfaceEntry->ipv4Data()->getIPAddress().str();
-            break;
-        case '6':
-            result = interfaceEntry->ipv6Data() == nullptr ? "" : interfaceEntry->ipv6Data()->getLinkLocalAddress().str();
-            break;
         case 'm':
             result = interfaceEntry->getMacAddress().str();
+            break;
+        case '4':
+#ifdef WITH_IPv4
+            if (interfaceEntry->ipv4Data() != nullptr)
+                result = interfaceEntry->ipv4Data()->getIPAddress().str();
+#endif // WITH_IPv4
+            break;
+        case '6':
+#ifdef WITH_IPv6
+            if (interfaceEntry->ipv6Data() != nullptr)
+                result = interfaceEntry->ipv6Data()->getLinkLocalAddress().str();
+#endif // WITH_IPv6
+            break;
+        case 'a':
+            if (false) {}
+#ifdef WITH_IPv4
+            else if (interfaceEntry->ipv4Data() != nullptr)
+                result = interfaceEntry->ipv4Data()->getIPAddress().str();
+#endif // WITH_IPv4
+#ifdef WITH_IPv6
+            else if (interfaceEntry->ipv6Data() != nullptr)
+                result = interfaceEntry->ipv6Data()->getLinkLocalAddress().str();
+#endif // WITH_IPv6
+#ifdef WITH_GENERIC
+            else if (interfaceEntry->getGenericNetworkProtocolData() != nullptr)
+                result = interfaceEntry->getGenericNetworkProtocolData()->getAddress().str();
+#endif // WITH_GENERIC
+            break;
+        case 'g':
+#ifdef WITH_GENERIC
+            if (interfaceEntry->getGenericNetworkProtocolData() != nullptr)
+                result = interfaceEntry->getGenericNetworkProtocolData()->getAddress().str();
+#endif // WITH_GENERIC
+            break;
+        case 'n':
+            result = interfaceEntry->getNetworkAddress().str();
             break;
         case 'i':
             result = interfaceEntry->info();
@@ -83,6 +118,8 @@ void InterfaceTableVisualizerBase::initialize(int stage)
         nodeFilter.setPattern(par("nodeFilter"));
         interfaceFilter.setPattern(par("interfaceFilter"));
         format.parseFormat(par("format"));
+        displacementHint = parseDisplacement(par("displacementHint"));
+        displacementPriority = par("displacementPriority");
         font = cFigure::parseFont(par("font"));
         textColor = cFigure::parseColor(par("textColor"));
         backgroundColor = cFigure::parseColor(par("backgroundColor"));
@@ -217,7 +254,11 @@ void InterfaceTableVisualizerBase::receiveSignal(cComponent *source, simsignal_t
             auto interfaceEntryDetails = static_cast<InterfaceEntryChangeDetails *>(object);
             auto interfaceEntry = interfaceEntryDetails->getInterfaceEntry();
             auto fieldId = interfaceEntryDetails->getFieldId();
-            if (fieldId == InterfaceEntry::F_IPV4_DATA || fieldId == IPv4InterfaceData::F_IP_ADDRESS) {
+            if (fieldId == InterfaceEntry::F_IPV4_DATA
+#ifdef WITH_IPv4
+                    || fieldId == IPv4InterfaceData::F_IP_ADDRESS
+#endif // WITH_IPv4
+                    ) {
                 if (interfaceFilter.matches(interfaceEntry)) {
                     auto interfaceVisualization = getInterfaceVisualization(networkNode, interfaceEntry);
                     if (interfaceVisualization == nullptr) {

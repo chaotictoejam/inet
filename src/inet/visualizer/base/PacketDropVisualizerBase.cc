@@ -18,8 +18,12 @@
 #include <algorithm>
 #include "inet/common/LayeredProtocolBase.h"
 #include "inet/common/ModuleAccess.h"
+#include "inet/common/queue/PassiveQueueBase.h"
 #include "inet/mobility/contract/IMobility.h"
 #include "inet/visualizer/base/PacketDropVisualizerBase.h"
+#include "inet/linklayer/ethernet/EtherMACBase.h"
+#include "inet/common/NotifierConsts.h"
+
 
 namespace inet {
 
@@ -111,6 +115,13 @@ void PacketDropVisualizerBase::subscribe()
     auto subscriptionModule = getModuleFromPar<cModule>(par("subscriptionModule"), this);
     subscriptionModule->subscribe(LayeredProtocolBase::packetFromLowerDroppedSignal, this);
     subscriptionModule->subscribe(LayeredProtocolBase::packetFromUpperDroppedSignal, this);
+    subscriptionModule->subscribe(PassiveQueueBase::dropPkByQueueSignal, this);
+#ifdef WITH_ETHERNET
+    subscriptionModule->subscribe(EtherMACBase::dropPkIfaceDownSignal, this);
+    subscriptionModule->subscribe(EtherMACBase::dropPkFromHLIfaceDownSignal, this);
+#endif // WITH_ETHERNET
+    subscriptionModule->subscribe(NF_PACKET_DROP, this);
+
 }
 
 void PacketDropVisualizerBase::unsubscribe()
@@ -120,13 +131,24 @@ void PacketDropVisualizerBase::unsubscribe()
     if (subscriptionModule != nullptr) {
         subscriptionModule->unsubscribe(LayeredProtocolBase::packetFromLowerDroppedSignal, this);
         subscriptionModule->unsubscribe(LayeredProtocolBase::packetFromUpperDroppedSignal, this);
+        subscriptionModule->unsubscribe(PassiveQueueBase::dropPkByQueueSignal, this);
+#ifdef WITH_ETHERNET
+        subscriptionModule->unsubscribe(EtherMACBase::dropPkIfaceDownSignal, this);
+        subscriptionModule->unsubscribe(EtherMACBase::dropPkFromHLIfaceDownSignal, this);
+#endif // WITH_ETHERNET
+        subscriptionModule->unsubscribe(NF_PACKET_DROP, this);
     }
 }
 
 void PacketDropVisualizerBase::receiveSignal(cComponent *source, simsignal_t signal, cObject *object, cObject *details)
 {
     Enter_Method_Silent();
-    if (signal == LayeredProtocolBase::packetFromLowerDroppedSignal || signal == LayeredProtocolBase::packetFromUpperDroppedSignal) {
+    if (signal == LayeredProtocolBase::packetFromLowerDroppedSignal || signal == LayeredProtocolBase::packetFromUpperDroppedSignal
+            || signal == PassiveQueueBase::dropPkByQueueSignal
+#ifdef WITH_ETHERNET
+            || signal == EtherMACBase::dropPkIfaceDownSignal || signal == EtherMACBase::dropPkFromHLIfaceDownSignal
+#endif // WITH_ETHERNET
+            ) {
         auto packet = check_and_cast<cPacket *>(object);
         if (packetFilter.matches(packet))
             addPacketDropVisualization(createPacketDropVisualization(check_and_cast<cModule*>(source), packet->dup()));

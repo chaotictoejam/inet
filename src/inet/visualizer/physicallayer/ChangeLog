@@ -1,5 +1,63 @@
 ====== inet-3.x ======
 
+2017-07-06  ------ inet-3.6.1 released ------
+
+2017-06-09  ------ inet-3.6.0 released ------
+
+2017-06-08  Levente Mészáros
+
+	Added radio mode, reception state and transmission state visualization.
+	Cleaned up link visualizer filtering.
+
+2017-06-08  Zoltan Bojthe
+
+	Fixed feature related errors
+
+2017-06-06  Levente Mészáros
+
+	Added tags parameter.
+
+2017-06-01  Levente Mészáros
+
+	Added displacementPriority parameters, renamed displacement parameter to displacementHint.
+
+2017-05-29  Levente Mészáros
+
+	Add unit(m) to some parameters.
+	Added check if loading the image is successful or not.
+	Separated transmission and reception figures.
+
+2017-05-24  Levente Mészáros
+
+	Added transmission and reception powers to icons.
+	Added checks for networkNodeFilter.
+	Added line labels to link visualizers.
+
+2017-02-20  Levente Mészáros
+
+	Added obstacle loss label in dB to TracingObstacleLossVisualizer.
+
+2017-02-16  Levente Mészáros
+
+	Added automatic animation speed control to MediumCanvasVisualizer.
+
+2017-02-14  Levente Mészáros
+
+	Signal visualization changes animation speed smoothly between propagation
+	and transmission.
+
+2017-02-09  Levente Mészáros
+
+	Added associated object to signal figures.
+
+2017-02-09  Levente Mészáros
+
+	Changed MediumVisualizer signalColor to use ColorSet.
+
+2017-02-07  Levente Mészáros
+
+	Switched MediumCanvasVisualizer signalColor to ColorSet.
+
 2017-02-20  ------ inet-3.5.0 released ------
 
 2017-02-17  Rudolf Hornig

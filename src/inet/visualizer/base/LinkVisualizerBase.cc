@@ -29,6 +29,21 @@ LinkVisualizerBase::LinkVisualization::LinkVisualization(int sourceModuleId, int
 {
 }
 
+const char *LinkVisualizerBase::DirectiveResolver::resolveDirective(char directive)
+{
+    switch (directive) {
+        case 'n':
+            result = packet->getName();
+            break;
+        case 'c':
+            result = packet->getClassName();
+            break;
+        default:
+            throw cRuntimeError("Unknown directive: %c", directive);
+    }
+    return result.c_str();
+}
+
 LinkVisualizerBase::~LinkVisualizerBase()
 {
     if (displayLinks)
@@ -51,6 +66,9 @@ void LinkVisualizerBase::initialize(int stage)
         lineShiftMode = par("lineShiftMode");
         lineContactSpacing = par("lineContactSpacing");
         lineContactMode = par("lineContactMode");
+        labelFormat.parseFormat(par("labelFormat"));
+        labelFont = cFigure::parseFont(par("labelFont"));
+        labelColor = cFigure::Color(par("labelColor"));
         fadeOutMode = par("fadeOutMode");
         fadeOutTime = par("fadeOutTime");
         fadeOutAnimationSpeed = par("fadeOutAnimationSpeed");
@@ -118,6 +136,12 @@ void LinkVisualizerBase::unsubscribe()
     }
 }
 
+std::string LinkVisualizerBase::getLinkVisualizationText(cPacket *packet) const
+{
+    DirectiveResolver directiveResolver(packet);
+    return labelFormat.formatString(&directiveResolver);
+}
+
 const LinkVisualizerBase::LinkVisualization *LinkVisualizerBase::getLinkVisualization(std::pair<int, int> linkVisualization)
 {
     auto it = linkVisualizations.find(linkVisualization);
@@ -165,48 +189,52 @@ void LinkVisualizerBase::removeLastModule(int treeId)
     lastModules.erase(lastModules.find(treeId));
 }
 
-void LinkVisualizerBase::updateLinkVisualization(cModule *source, cModule *destination)
+void LinkVisualizerBase::refreshLinkVisualization(const LinkVisualization *linkVisualization, cPacket *packet)
+{
+    linkVisualization->lastUsageAnimationPosition = AnimationPosition();
+}
+
+void LinkVisualizerBase::updateLinkVisualization(cModule *source, cModule *destination, cPacket *packet)
 {
     auto key = std::pair<int, int>(source->getId(), destination->getId());
     auto linkVisualization = getLinkVisualization(key);
     if (linkVisualization == nullptr) {
-        linkVisualization = createLinkVisualization(source, destination);
+        linkVisualization = createLinkVisualization(source, destination, packet);
         addLinkVisualization(key, linkVisualization);
     }
-    else {
-        linkVisualization->lastUsageAnimationPosition = AnimationPosition();
-    }
+    else
+        refreshLinkVisualization(linkVisualization, packet);
 }
 
 void LinkVisualizerBase::receiveSignal(cComponent *source, simsignal_t signal, cObject *object, cObject *details)
 {
     Enter_Method_Silent();
     if (signal == LayeredProtocolBase::packetReceivedFromUpperSignal) {
-        if (isLinkEnd(static_cast<cModule *>(source))) {
+        if (isLinkStart(static_cast<cModule *>(source))) {
             auto module = check_and_cast<cModule *>(source);
+            auto packet = check_and_cast<cPacket *>(object);
+            auto treeId = packet->getTreeId();
+            auto lastModule = getLastModule(treeId);
+            if (lastModule != nullptr)
+                removeLastModule(treeId);
             auto networkNode = getContainingNode(module);
             auto interfaceEntry = getInterfaceEntry(networkNode, module);
-            auto packet = check_and_cast<cPacket *>(object);
-            if (nodeFilter.matches(networkNode) && interfaceFilter.matches(interfaceEntry) && packetFilter.matches(packet)) {
-                auto treeId = packet->getTreeId();
+            if (nodeFilter.matches(networkNode) && interfaceFilter.matches(interfaceEntry) && packetFilter.matches(packet))
                 setLastModule(treeId, module);
-            }
         }
     }
     else if (signal == LayeredProtocolBase::packetSentToUpperSignal) {
         if (isLinkEnd(static_cast<cModule *>(source))) {
             auto module = check_and_cast<cModule *>(source);
-            auto networkNode = getContainingNode(module);
-            auto interfaceEntry = getInterfaceEntry(networkNode, module);
             auto packet = check_and_cast<cPacket *>(object);
-            if (nodeFilter.matches(networkNode) && interfaceFilter.matches(interfaceEntry) && packetFilter.matches(packet)) {
-                auto treeId = packet->getTreeId();
-                auto lastModule = getLastModule(treeId);
-                if (lastModule != nullptr) {
-                    updateLinkVisualization(getContainingNode(lastModule), getContainingNode(module));
-                    // TODO: breaks due to multiple recipient?
-                    // removeLastModule(treeId);
-                }
+            auto treeId = packet->getTreeId();
+            auto lastModule = getLastModule(treeId);
+            if (lastModule != nullptr) {
+                auto networkNode = getContainingNode(module);
+                auto interfaceEntry = getInterfaceEntry(networkNode, module);
+                if (nodeFilter.matches(networkNode) && interfaceFilter.matches(interfaceEntry) && packetFilter.matches(packet))
+                    updateLinkVisualization(getContainingNode(lastModule), networkNode, packet);
+                // NOTE: don't call removeLastModule(treeId) because other network nodes may still receive this packet
             }
         }
     }

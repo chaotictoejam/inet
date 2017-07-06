@@ -49,7 +49,7 @@ void QoSRecoveryProcedure::incrementStationSrc()
 {
     stationShortRetryCounter++;
     if (stationShortRetryCounter == shortRetryLimit) // 9.3.3 Random backoff time
-        resetContentionWindow(); // TODO: + stationShortRetryCounter = 0??
+        resetContentionWindow();
     else
         cwCalculator->incrementCw();
 }
@@ -58,7 +58,7 @@ void QoSRecoveryProcedure::incrementStationLrc()
 {
     stationLongRetryCounter++;
     if (stationLongRetryCounter == longRetryLimit) // 9.3.3 Random backoff time
-        resetContentionWindow(); // TODO: + stationLongRetryCounter = 0??
+        resetContentionWindow();
     else
         cwCalculator->incrementCw();
 }
@@ -225,8 +225,7 @@ int QoSRecoveryProcedure::getRc(Ieee80211DataFrame* frame, std::map<std::pair<Ti
 
 bool QoSRecoveryProcedure::isMulticastFrame(Ieee80211Frame* frame)
 {
-    if (dynamic_cast<Ieee80211OneAddressFrame*>(frame)) {
-        Ieee80211OneAddressFrame *oneAddressFrame = dynamic_cast<Ieee80211OneAddressFrame*>(frame);
+    if (Ieee80211OneAddressFrame *oneAddressFrame = dynamic_cast<Ieee80211OneAddressFrame*>(frame)) {
         return oneAddressFrame->getReceiverAddress().isMulticast();
     }
     return false;

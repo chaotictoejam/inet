@@ -29,6 +29,21 @@ PathVisualizerBase::PathVisualization::PathVisualization(const std::vector<int>&
 {
 }
 
+const char *PathVisualizerBase::DirectiveResolver::resolveDirective(char directive)
+{
+    switch (directive) {
+        case 'n':
+            result = packet->getName();
+            break;
+        case 'c':
+            result = packet->getClassName();
+            break;
+        default:
+            throw cRuntimeError("Unknown directive: %c", directive);
+    }
+    return result.c_str();
+}
+
 PathVisualizerBase::~PathVisualizerBase()
 {
     if (displayRoutes)
@@ -46,10 +61,16 @@ void PathVisualizerBase::initialize(int stage)
         lineColorSet.parseColors(par("lineColor"));
         lineStyle = cFigure::parseLineStyle(par("lineStyle"));
         lineWidth = par("lineWidth");
+        lineSmooth = par("lineSmooth");
         lineShift = par("lineShift");
         lineShiftMode = par("lineShiftMode");
         lineContactSpacing = par("lineContactSpacing");
         lineContactMode = par("lineContactMode");
+        labelFormat.parseFormat(par("labelFormat"));
+        labelFont = cFigure::parseFont(par("labelFont"));
+        labelColorAsString = par("labelColor");
+        if (!isEmpty(labelColorAsString))
+            labelColor = cFigure::Color(labelColorAsString);
         fadeOutMode = par("fadeOutMode");
         fadeOutTime = par("fadeOutTime");
         fadeOutAnimationSpeed = par("fadeOutAnimationSpeed");
@@ -115,7 +136,13 @@ void PathVisualizerBase::unsubscribe()
     }
 }
 
-const PathVisualizerBase::PathVisualization *PathVisualizerBase::createPathVisualization(const std::vector<int>& path) const
+std::string PathVisualizerBase::getPathVisualizationText(cPacket *packet) const
+{
+    DirectiveResolver directiveResolver(packet);
+    return labelFormat.formatString(&directiveResolver);
+}
+
+const PathVisualizerBase::PathVisualization *PathVisualizerBase::createPathVisualization(const std::vector<int>& path, cPacket *packet) const
 {
     return new PathVisualization(path);
 }
@@ -172,7 +199,10 @@ const std::vector<int> *PathVisualizerBase::getIncompletePath(int treeId)
 
 void PathVisualizerBase::addToIncompletePath(int treeId, cModule *module)
 {
-    incompletePaths[treeId].push_back(module->getId());
+    auto& moduleIds = incompletePaths[treeId];
+    auto moduleId = module->getId();
+    if (moduleIds.size() == 0 || moduleIds[moduleIds.size() - 1] != moduleId)
+        moduleIds.push_back(moduleId);
 }
 
 void PathVisualizerBase::removeIncompletePath(int treeId)
@@ -180,62 +210,58 @@ void PathVisualizerBase::removeIncompletePath(int treeId)
     incompletePaths.erase(incompletePaths.find(treeId));
 }
 
-void PathVisualizerBase::updatePath(const std::vector<int>& moduleIds)
+void PathVisualizerBase::updatePathVisualization(const std::vector<int>& moduleIds, cPacket *packet)
 {
     const PathVisualization *pathVisualization = getPathVisualization(moduleIds);
     if (pathVisualization == nullptr) {
-        pathVisualization = createPathVisualization(moduleIds);
+        pathVisualization = createPathVisualization(moduleIds, packet);
         addPathVisualization(pathVisualization);
     }
     else
-        pathVisualization->lastUsageAnimationPosition = AnimationPosition();
+        refreshPathVisualization(pathVisualization, packet);
+}
+
+void PathVisualizerBase::refreshPathVisualization(const PathVisualization *pathVisualization, cPacket *packet)
+{
+    pathVisualization->lastUsageAnimationPosition = AnimationPosition();
 }
 
 void PathVisualizerBase::receiveSignal(cComponent *source, simsignal_t signal, cObject *object, cObject *details)
 {
     Enter_Method_Silent();
     if (signal == LayeredProtocolBase::packetReceivedFromUpperSignal) {
-        if (isPathEnd(static_cast<cModule *>(source))) {
+        if (isPathStart(static_cast<cModule *>(source))) {
             auto module = check_and_cast<cModule *>(source);
-            auto networkNode = getContainingNode(module);
             auto packet = check_and_cast<cPacket *>(object);
-            if (nodeFilter.matches(networkNode) && packetFilter.matches(packet)) {
-                auto treeId = packet->getTreeId();
-                auto module = check_and_cast<cModule *>(source);
-                addToIncompletePath(treeId, getContainingNode(module));
-            }
+            auto treeId = packet->getEncapsulationTreeId();
+            auto path = getIncompletePath(treeId);
+            if (path != nullptr)
+                removeIncompletePath(treeId);
+            auto networkNode = getContainingNode(module);
+            if (nodeFilter.matches(networkNode) && packetFilter.matches(packet))
+                addToIncompletePath(treeId, networkNode);
         }
     }
     else if (signal == LayeredProtocolBase::packetReceivedFromLowerSignal) {
-        if (isPathEnd(static_cast<cModule *>(source))) {
+        if (isPathElement(static_cast<cModule *>(source))) {
+            auto module = check_and_cast<cModule *>(source);
             auto packet = check_and_cast<cPacket *>(object);
-            if (packetFilter.matches(packet)) {
-                auto treeId = packet->getEncapsulatedPacket()->getTreeId();
-                auto module = check_and_cast<cModule *>(source);
+            auto treeId = packet->getEncapsulationTreeId();
+            auto path = getIncompletePath(treeId);
+            if (path != nullptr)
                 addToIncompletePath(treeId, getContainingNode(module));
-            }
-        }
-        else if (isPathElement(static_cast<cModule *>(source))) {
-            auto packet = check_and_cast<cPacket *>(object);
-            if (packetFilter.matches(packet)) {
-                auto encapsulatedPacket = packet->getEncapsulatedPacket()->getEncapsulatedPacket();
-                if (encapsulatedPacket != nullptr) {
-                    auto treeId = encapsulatedPacket->getTreeId();
-                    auto module = check_and_cast<cModule *>(source);
-                    addToIncompletePath(treeId, getContainingNode(module));
-                }
-            }
         }
     }
     else if (signal == LayeredProtocolBase::packetSentToUpperSignal) {
         if (isPathEnd(static_cast<cModule *>(source))) {
             auto module = check_and_cast<cModule *>(source);
-            auto networkNode = getContainingNode(module);
             auto packet = check_and_cast<cPacket *>(object);
-            if (nodeFilter.matches(networkNode) && packetFilter.matches(packet)) {
-                auto treeId = packet->getTreeId();
-                auto path = getIncompletePath(treeId);
-                updatePath(*path);
+            auto treeId = packet->getEncapsulationTreeId();
+            auto path = getIncompletePath(treeId);
+            if (path != nullptr) {
+                auto networkNode = getContainingNode(module);
+                if (nodeFilter.matches(networkNode) && packetFilter.matches(packet))
+                    updatePathVisualization(*path, packet);
                 removeIncompletePath(treeId);
             }
         }
