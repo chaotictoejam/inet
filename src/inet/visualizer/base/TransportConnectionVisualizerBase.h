@@ -20,14 +20,14 @@
 
 #include "inet/visualizer/base/VisualizerBase.h"
 #include "inet/visualizer/util/ColorSet.h"
-#include "inet/visualizer/util/Displacement.h"
 #include "inet/visualizer/util/NetworkNodeFilter.h"
+#include "inet/visualizer/util/Placement.h"
 #include "inet/visualizer/util/PortFilter.h"
 
 #ifdef WITH_TCP_INET
-#include "inet/transportlayer/tcp/TCPConnection.h"
+#include "inet/transportlayer/tcp/TcpConnection.h"
 #else
-namespace inet { namespace tcp { class TCPConnection; } }
+namespace inet { namespace tcp { class TcpConnection; } }
 #endif // WITH_TCP_INET
 
 namespace inet {
@@ -60,8 +60,8 @@ class INET_API TransportConnectionVisualizerBase : public VisualizerBase, public
     ColorSet iconColorSet;
     cFigure::Font labelFont;
     cFigure::Color labelColor;
-    Displacement displacementHint;
-    double displacementPriority;
+    Placement placementHint;
+    double placementPriority;
     //@}
 
     std::vector<const TransportConnectionVisualization *> connectionVisualizations;
@@ -73,7 +73,7 @@ class INET_API TransportConnectionVisualizerBase : public VisualizerBase, public
     virtual void subscribe();
     virtual void unsubscribe();
 
-    virtual const TransportConnectionVisualization *createConnectionVisualization(cModule *source, cModule *destination, tcp::TCPConnection *tcpConnection) const = 0;
+    virtual const TransportConnectionVisualization *createConnectionVisualization(cModule *source, cModule *destination, tcp::TcpConnection *tcpConnection) const = 0;
     virtual void addConnectionVisualization(const TransportConnectionVisualization *connectionVisualization);
     virtual void removeConnectionVisualization(const TransportConnectionVisualization *connectionVisualization);
     virtual void removeAllConnectionVisualizations();

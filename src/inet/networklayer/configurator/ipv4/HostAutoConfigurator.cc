@@ -16,17 +16,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <stdexcept>
 #include <algorithm>
-
-#include "inet/networklayer/configurator/ipv4/HostAutoConfigurator.h"
+#include <stdexcept>
 
 #include "inet/common/ModuleAccess.h"
+#include "inet/common/lifecycle/ModuleOperations.h"
+#include "inet/common/lifecycle/NodeStatus.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
-#include "inet/networklayer/ipv4/IPv4InterfaceData.h"
-#include "inet/networklayer/ipv4/IIPv4RoutingTable.h"
+#include "inet/networklayer/configurator/ipv4/HostAutoConfigurator.h"
+#include "inet/networklayer/ipv4/IIpv4RoutingTable.h"
+#include "inet/networklayer/ipv4/Ipv4InterfaceData.h"
 #include "inet/networklayer/contract/IInterfaceTable.h"
-#include "inet/networklayer/contract/ipv4/IPv4Address.h"
+#include "inet/networklayer/contract/ipv4/Ipv4Address.h"
 
 namespace inet {
 
@@ -34,18 +35,14 @@ Define_Module(HostAutoConfigurator);
 
 void HostAutoConfigurator::initialize(int stage)
 {
-    cSimpleModule::initialize(stage);
-
-    if (stage == INITSTAGE_NETWORK_LAYER_2) {
-        setupNetworkLayer();
-    }
+    OperationalBase::initialize(stage);
 }
 
 void HostAutoConfigurator::finish()
 {
 }
 
-void HostAutoConfigurator::handleMessage(cMessage *apMsg)
+void HostAutoConfigurator::handleMessageWhenUp(cMessage *apMsg)
 {
 }
 
@@ -53,22 +50,22 @@ void HostAutoConfigurator::setupNetworkLayer()
 {
     EV_INFO << "host auto configuration started" << std::endl;
 
-    std::string interfaces = par("interfaces").stringValue();
-    IPv4Address addressBase = IPv4Address(par("addressBase").stringValue());
-    IPv4Address netmask = IPv4Address(par("netmask").stringValue());
-    std::string mcastGroups = par("mcastGroups").stringValue();
+    std::string interfaces = par("interfaces");
+    Ipv4Address addressBase = Ipv4Address(par("addressBase").stringValue());
+    Ipv4Address netmask = Ipv4Address(par("netmask").stringValue());
+    std::string mcastGroups = par("mcastGroups").stdstringValue();
 
     // get our host module
     cModule *host = getContainingNode(this);
 
-    IPv4Address myAddress = IPv4Address(addressBase.getInt() + uint32(host->getId()));
+    Ipv4Address myAddress = Ipv4Address(addressBase.getInt() + uint32(host->getId()));
 
     // address test
-    if (!IPv4Address::maskedAddrAreEqual(myAddress, addressBase, netmask))
+    if (!Ipv4Address::maskedAddrAreEqual(myAddress, addressBase, netmask))
         throw cRuntimeError("Generated IP address is out of specified address range");
 
     // get our routing table
-    IIPv4RoutingTable *routingTable = L3AddressResolver().routingTableOf(host);
+    IIpv4RoutingTable *routingTable = L3AddressResolver().getIpv4RoutingTableOf(host);
     if (!routingTable)
         throw cRuntimeError("No routing table found");
 
@@ -81,7 +78,7 @@ void HostAutoConfigurator::setupNetworkLayer()
     cStringTokenizer interfaceTokenizer(interfaces.c_str());
     const char *ifname;
     while ((ifname = interfaceTokenizer.nextToken()) != nullptr) {
-        InterfaceEntry *ie = ift->getInterfaceByName(ifname);
+        InterfaceEntry *ie = ift->findInterfaceByName(ifname);
         if (!ie)
             throw cRuntimeError("No such interface '%s'", ifname);
 
@@ -93,20 +90,21 @@ void HostAutoConfigurator::setupNetworkLayer()
 
         EV_INFO << "interface " << ifname << " gets " << myAddress.str() << "/" << netmask.str() << std::endl;
 
-        ie->ipv4Data()->setIPAddress(myAddress);
-        ie->ipv4Data()->setNetmask(netmask);
+        auto ipv4Data = ie->getProtocolData<Ipv4InterfaceData>();
+        ipv4Data->setIPAddress(myAddress);
+        ipv4Data->setNetmask(netmask);
         ie->setBroadcast(true);
 
         // associate interface with default multicast groups
-        ie->ipv4Data()->joinMulticastGroup(IPv4Address::ALL_HOSTS_MCAST);
-        ie->ipv4Data()->joinMulticastGroup(IPv4Address::ALL_ROUTERS_MCAST);
+        ipv4Data->joinMulticastGroup(Ipv4Address::ALL_HOSTS_MCAST);
+        ipv4Data->joinMulticastGroup(Ipv4Address::ALL_ROUTERS_MCAST);
 
         // associate interface with specified multicast groups
         cStringTokenizer interfaceTokenizer(mcastGroups.c_str());
         const char *mcastGroup_s;
         while ((mcastGroup_s = interfaceTokenizer.nextToken()) != nullptr) {
-            IPv4Address mcastGroup(mcastGroup_s);
-            ie->ipv4Data()->joinMulticastGroup(mcastGroup);
+            Ipv4Address mcastGroup(mcastGroup_s);
+            ipv4Data->joinMulticastGroup(mcastGroup);
         }
     }
 }

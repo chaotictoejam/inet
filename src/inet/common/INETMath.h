@@ -27,6 +27,7 @@
 
 #include <cmath>
 #include <limits>
+
 #include "inet/common/INETDefs.h"
 
 namespace inet {
@@ -148,17 +149,12 @@ inline int sign(double i) { return (i >= 0) ? 1 : -1; };
 /**
  * Returns an integer that corresponds to rounded double parameter
  */
-inline int round(double d) { return (int)(ceil(d - 0.5)); }
+inline int round(double d) { return static_cast<int>(ceil(d - 0.5)); }
 
 /**
  * Discards the fractional part of the parameter, e.g. -3.8 becomes -3
  */
 inline double floorToZero(double d) { return (d >= 0.0) ? floor(d) : ceil(d); }
-
-/**
- * Returns the greater of the given parameters
- */
-inline double max(double a, double b) { return (a < b) ? b : a; }
 
 /**
  * Converts a dB value to fraction.
@@ -171,14 +167,24 @@ inline double dB2fraction(double dB) { return pow(10.0, dB / 10.0); }
 inline double fraction2dB(double fraction) { return 10 * log10(fraction); }
 
 /**
- * Converts a dBm value into milliwatts
+ * Converts a dBmW value to mW.
  */
-inline double dBm2mW(double dBm) { return pow(10.0, dBm / 10.0); }
+inline double dBmW2mW(double dBm) { return pow(10.0, dBm / 10.0); }
 
 /**
- * Convert a mW value to dBm.
+ * Convert a mW value to dBmW.
  */
-inline double mW2dBm(double mW) { return 10 * log10(mW); }
+inline double mW2dBmW(double mW) { return 10.0 * log10(mW); }
+
+/**
+ * Converts a dBmW/MHz value into W/Hz.
+ */
+inline double dBmWpMHz2WpHz(double dBmWpMHz) { return pow(10.0, dBmWpMHz / 10.0) / 1000000.0 / 1000.0; }
+
+/**
+ * Convert a W/Hz value to dBmW/MHz.
+ */
+inline double wpHz2dBmWpMHz(double wpHz) { return 10.0 * log10(wpHz * 1000000.0 * 1000.0); }
 
 /**
  * Convert a degree value to radian.

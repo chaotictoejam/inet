@@ -36,13 +36,13 @@ simple ProbabilisticBroadcast extends NetworkProtocolBase like INetworkProtocol
 {
     parameters:
         @class(ProbabilisticBroadcast);
-        int headerLength @unit(bit) = default(100b); // length of the network packet header (in bits)
+        int headerLength @unit(b) = default(96b); // length of the network packet header (in bits)
         // period between two probabilistic broadcast attempts
         double bcperiod @unit(s) = default(2 s);
         // probability of broadcast for each attempt
         double beta = default(0.8);
         // maximal number of broadcast attempts for each packet.
-        double maxNbBcast = default(1);
+        int maxNbBcast = default(1);
         // maximal back-off before first broadcast attempt [seconds].
         // if don't want to use this parameter, simply set it
         // to a value that is greater than bcperiod.
@@ -55,3 +55,4 @@ simple ProbabilisticBroadcast extends NetworkProtocolBase like INetworkProtocol
         // MAC backoff, propagation delay and clock drift.
         double timeInQueueAfterDeath @unit(s) = default(60 s);
 }
+

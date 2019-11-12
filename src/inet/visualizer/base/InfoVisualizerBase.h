@@ -18,10 +18,10 @@
 #ifndef __INET_INFOVISUALIZERBASE_H
 #define __INET_INFOVISUALIZERBASE_H
 
+#include "inet/common/StringFormat.h"
 #include "inet/visualizer/base/VisualizerBase.h"
-#include "inet/visualizer/util/Displacement.h"
 #include "inet/visualizer/util/ModuleFilter.h"
-#include "inet/visualizer/util/StringFormat.h"
+#include "inet/visualizer/util/Placement.h"
 
 namespace inet {
 
@@ -61,8 +61,8 @@ class INET_API InfoVisualizerBase : public VisualizerBase
     cFigure::Color textColor;
     cFigure::Color backgroundColor;
     double opacity = NaN;
-    Displacement displacementHint;
-    double displacementPriority;
+    Placement placementHint;
+    double placementPriority;
     //@}
 
     std::vector<const InfoVisualization *> infoVisualizations;

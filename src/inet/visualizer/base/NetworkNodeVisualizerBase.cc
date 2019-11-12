@@ -16,6 +16,7 @@
 //
 
 #include "inet/common/ModuleAccess.h"
+#include "inet/common/scenario/ScenarioManager.h"
 #include "inet/visualizer/base/NetworkNodeVisualizerBase.h"
 
 namespace inet {
@@ -29,17 +30,45 @@ void NetworkNodeVisualizerBase::initialize(int stage)
     if (stage == INITSTAGE_LOCAL) {
         nodeFilter.setPattern(par("nodeFilter"));
         annotationSpacing = par("annotationSpacing");
-        displacementPenalty = par("displacementPenalty");
+        placementPenalty = par("placementPenalty");
+        visualizationSubjectModule->subscribe(POST_MODEL_CHANGE, this);
+        visualizationSubjectModule->subscribe(PRE_MODEL_CHANGE, this);
     }
 }
 
 void NetworkNodeVisualizerBase::handleParameterChange(const char *name)
 {
+    if (!hasGUI()) return;
     if (name != nullptr) {
         if (!strcmp(name, "nodeFilter"))
             nodeFilter.setPattern(par("nodeFilter"));
         // TODO:
     }
+}
+
+void NetworkNodeVisualizerBase::receiveSignal(cComponent *source, simsignal_t signal, cObject *object, cObject *details)
+{
+    if (signal == POST_MODEL_CHANGE) {
+        if (auto moduleInit = dynamic_cast<cPreModuleInitNotification *>(object)) {
+            auto module = moduleInit->module;
+            if (isNetworkNode(module) && nodeFilter.matches(module)) {
+                auto visualization = createNetworkNodeVisualization(module);
+                addNetworkNodeVisualization(visualization);
+            }
+        }
+    }
+    else if (signal == PRE_MODEL_CHANGE) {
+        if (auto moduleDelete = dynamic_cast<cPreModuleDeleteNotification *>(object)) {
+            auto module = moduleDelete->module;
+            if (isNetworkNode(module) && nodeFilter.matches(module)) {
+                auto visualization = getNetworkNodeVisualization(module);
+                removeNetworkNodeVisualization(visualization);
+                delete visualization;
+            }
+        }
+    }
+    else
+        throw cRuntimeError("Unknown signal");
 }
 
 } // namespace visualizer

@@ -38,10 +38,11 @@ void AlternatingEpEnergyGenerator::initialize(int stage)
         timer = new cMessage("timer");
         updatePowerGeneration();
         scheduleIntervalTimer();
-        energySink->addEnergyGenerator(this);
         WATCH(isSleeping);
         WATCH(powerGeneration);
     }
+    else if (stage == INITSTAGE_POWER)
+        energySink->addEnergyGenerator(this);
 }
 
 void AlternatingEpEnergyGenerator::handleMessage(cMessage *message)
@@ -59,6 +60,8 @@ void AlternatingEpEnergyGenerator::updatePowerGeneration()
 {
     powerGeneration = isSleeping ? W(0) : W(par("powerGeneration"));
     emit(IEpEnergySink::powerGenerationChangedSignal, powerGeneration.get());
+    auto text = "power: " + powerGeneration.str();
+    getDisplayString().setTagArg("t", 0, text.c_str());
 }
 
 void AlternatingEpEnergyGenerator::scheduleIntervalTimer()

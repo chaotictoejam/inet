@@ -16,17 +16,17 @@
 //
 
 #include "inet/common/ModuleAccess.h"
-#include "inet/common/NotifierConsts.h"
+#include "inet/common/Simsignals.h"
 #include "inet/networklayer/common/InterfaceEntry.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
-#ifdef WITH_GENERIC
-#include "inet/networklayer/generic/GenericNetworkProtocolInterfaceData.h"
-#endif // WITH_GENERIC
+#ifdef WITH_NEXTHOP
+#include "../../networklayer/nexthop/NextHopInterfaceData.h"
+#endif // WITH_NEXTHOP
 #ifdef WITH_IPv4
-#include "inet/networklayer/ipv4/IPv4InterfaceData.h"
+#include "inet/networklayer/ipv4/Ipv4InterfaceData.h"
 #endif // WITH_IPv4
 #ifdef WITH_IPv6
-#include "inet/networklayer/ipv6/IPv6InterfaceData.h"
+#include "inet/networklayer/ipv6/Ipv6InterfaceData.h"
 #endif // WITH_IPv6
 #include "inet/visualizer/base/InterfaceTableVisualizerBase.h"
 
@@ -34,8 +34,9 @@ namespace inet {
 
 namespace visualizer {
 
-InterfaceTableVisualizerBase::InterfaceVisualization::InterfaceVisualization(int networkNodeId, int interfaceId) :
+InterfaceTableVisualizerBase::InterfaceVisualization::InterfaceVisualization(int networkNodeId, int networkNodeGateId, int interfaceId) :
     networkNodeId(networkNodeId),
+    networkNodeGateId(networkNodeGateId),
     interfaceId(interfaceId)
 {
 }
@@ -45,49 +46,55 @@ const char *InterfaceTableVisualizerBase::DirectiveResolver::resolveDirective(ch
     result = "";
     switch (directive) {
         case 'N':
-            result = interfaceEntry->getName();
+            result = interfaceEntry->getInterfaceName();
             break;
         case 'm':
             result = interfaceEntry->getMacAddress().str();
             break;
+        case 'l': // TODO: Ipv4 or Ipv6
+#ifdef WITH_IPv4
+            if (auto ipv4Data = interfaceEntry->findProtocolData<Ipv4InterfaceData>())
+                result = std::to_string(ipv4Data->getNetmask().getNetmaskLength());
+#endif // WITH_IPv4
+            break;
         case '4':
 #ifdef WITH_IPv4
-            if (interfaceEntry->ipv4Data() != nullptr)
-                result = interfaceEntry->ipv4Data()->getIPAddress().str();
+            if (auto ipv4Data = interfaceEntry->findProtocolData<Ipv4InterfaceData>())
+                result = ipv4Data->getIPAddress().str();
 #endif // WITH_IPv4
             break;
         case '6':
 #ifdef WITH_IPv6
-            if (interfaceEntry->ipv6Data() != nullptr)
-                result = interfaceEntry->ipv6Data()->getLinkLocalAddress().str();
+            if (auto ipv6Data = interfaceEntry->findProtocolData<Ipv6InterfaceData>())
+                result = ipv6Data->getLinkLocalAddress().str();
 #endif // WITH_IPv6
             break;
         case 'a':
             if (false) {}
 #ifdef WITH_IPv4
-            else if (interfaceEntry->ipv4Data() != nullptr)
-                result = interfaceEntry->ipv4Data()->getIPAddress().str();
+            else if (auto ipv4Data = interfaceEntry->findProtocolData<Ipv4InterfaceData>())
+                result = ipv4Data->getIPAddress().str();
 #endif // WITH_IPv4
 #ifdef WITH_IPv6
-            else if (interfaceEntry->ipv6Data() != nullptr)
-                result = interfaceEntry->ipv6Data()->getLinkLocalAddress().str();
+            else if (auto ipv6Data = interfaceEntry->findProtocolData<Ipv6InterfaceData>())
+                result = ipv6Data->getLinkLocalAddress().str();
 #endif // WITH_IPv6
-#ifdef WITH_GENERIC
-            else if (interfaceEntry->getGenericNetworkProtocolData() != nullptr)
-                result = interfaceEntry->getGenericNetworkProtocolData()->getAddress().str();
-#endif // WITH_GENERIC
+#ifdef WITH_NEXTHOP
+            else if (auto nextHopData = interfaceEntry->findProtocolData<NextHopInterfaceData>())
+                result = nextHopData->getAddress().str();
+#endif // WITH_NEXTHOP
             break;
         case 'g':
-#ifdef WITH_GENERIC
-            if (interfaceEntry->getGenericNetworkProtocolData() != nullptr)
-                result = interfaceEntry->getGenericNetworkProtocolData()->getAddress().str();
-#endif // WITH_GENERIC
+#ifdef WITH_NEXTHOP
+            if (auto nextHopData = interfaceEntry->findProtocolData<NextHopInterfaceData>())
+                result = nextHopData->getAddress().str();
+#endif // WITH_NEXTHOP
             break;
         case 'n':
             result = interfaceEntry->getNetworkAddress().str();
             break;
         case 'i':
-            result = interfaceEntry->info();
+            result = interfaceEntry->str();
             break;
         case 's':
             result = interfaceEntry->str();
@@ -118,8 +125,8 @@ void InterfaceTableVisualizerBase::initialize(int stage)
         nodeFilter.setPattern(par("nodeFilter"));
         interfaceFilter.setPattern(par("interfaceFilter"));
         format.parseFormat(par("format"));
-        displacementHint = parseDisplacement(par("displacementHint"));
-        displacementPriority = par("displacementPriority");
+        placementHint = parsePlacement(par("placementHint"));
+        placementPriority = par("placementPriority");
         font = cFigure::parseFont(par("font"));
         textColor = cFigure::parseColor(par("textColor"));
         backgroundColor = cFigure::parseColor(par("backgroundColor"));
@@ -131,6 +138,7 @@ void InterfaceTableVisualizerBase::initialize(int stage)
 
 void InterfaceTableVisualizerBase::handleParameterChange(const char *name)
 {
+    if (!hasGUI()) return;
     if (name != nullptr) {
         if (!strcmp(name, "nodeFilter"))
             nodeFilter.setPattern(par("nodeFilter"));
@@ -144,22 +152,47 @@ void InterfaceTableVisualizerBase::handleParameterChange(const char *name)
 
 void InterfaceTableVisualizerBase::subscribe()
 {
-    auto subscriptionModule = getModuleFromPar<cModule>(par("subscriptionModule"), this);
-    subscriptionModule->subscribe(NF_INTERFACE_CREATED, this);
-    subscriptionModule->subscribe(NF_INTERFACE_DELETED, this);
-    subscriptionModule->subscribe(NF_INTERFACE_CONFIG_CHANGED, this);
-    subscriptionModule->subscribe(NF_INTERFACE_IPv4CONFIG_CHANGED, this);
+    visualizationSubjectModule->subscribe(interfaceCreatedSignal, this);
+    visualizationSubjectModule->subscribe(interfaceDeletedSignal, this);
+    visualizationSubjectModule->subscribe(interfaceConfigChangedSignal, this);
+    visualizationSubjectModule->subscribe(interfaceIpv4ConfigChangedSignal, this);
 }
 
 void InterfaceTableVisualizerBase::unsubscribe()
 {
     // NOTE: lookup the module again because it may have been deleted first
-    auto subscriptionModule = getModuleFromPar<cModule>(par("subscriptionModule"), this, false);
-    if (subscriptionModule != nullptr) {
-        subscriptionModule->unsubscribe(NF_INTERFACE_CREATED, this);
-        subscriptionModule->unsubscribe(NF_INTERFACE_DELETED, this);
-        subscriptionModule->unsubscribe(NF_INTERFACE_CONFIG_CHANGED, this);
-        subscriptionModule->unsubscribe(NF_INTERFACE_IPv4CONFIG_CHANGED, this);
+    auto visualizationSubjectModule = getModuleFromPar<cModule>(par("visualizationSubjectModule"), this, false);
+    if (visualizationSubjectModule != nullptr) {
+        visualizationSubjectModule->unsubscribe(interfaceCreatedSignal, this);
+        visualizationSubjectModule->unsubscribe(interfaceDeletedSignal, this);
+        visualizationSubjectModule->unsubscribe(interfaceConfigChangedSignal, this);
+        visualizationSubjectModule->unsubscribe(interfaceIpv4ConfigChangedSignal, this);
+    }
+}
+
+cModule *InterfaceTableVisualizerBase::getNetworkNode(const InterfaceVisualization *interfaceVisualization)
+{
+    return getSimulation()->getModule(interfaceVisualization->networkNodeId);
+}
+
+cGate *InterfaceTableVisualizerBase::getOutputGate(cModule *networkNode, InterfaceEntry *interfaceEntry)
+{
+    if (interfaceEntry->getNodeOutputGateId() == -1)
+        return nullptr;
+    cGate *outputGate = networkNode->gate(interfaceEntry->getNodeOutputGateId());
+    if (outputGate == nullptr || outputGate->getChannel() == nullptr)
+        return nullptr;
+    else
+        return outputGate;
+}
+
+cGate *InterfaceTableVisualizerBase::getOutputGate(const InterfaceVisualization *interfaceVisualization)
+{
+    if (interfaceVisualization->networkNodeGateId == -1)
+        return nullptr;
+    else {
+        auto networkNode = getNetworkNode(interfaceVisualization);
+        return networkNode != nullptr ? networkNode->gate(interfaceVisualization->networkNodeGateId) : nullptr;
     }
 }
 
@@ -178,7 +211,7 @@ void InterfaceTableVisualizerBase::addInterfaceVisualization(const InterfaceVisu
 
 void InterfaceTableVisualizerBase::addAllInterfaceVisualizations()
 {
-    for (cModule::SubmoduleIterator it(getSystemModule()); !it.end(); it++) {
+    for (cModule::SubmoduleIterator it(visualizationSubjectModule); !it.end(); it++) {
         auto networkNode = *it;
         if (isNetworkNode(networkNode) && nodeFilter.matches(networkNode)) {
             L3AddressResolver addressResolver;
@@ -228,7 +261,7 @@ std::string InterfaceTableVisualizerBase::getVisualizationText(const InterfaceEn
 void InterfaceTableVisualizerBase::receiveSignal(cComponent *source, simsignal_t signal, cObject *object, cObject *details)
 {
     Enter_Method_Silent();
-    if (signal == NF_INTERFACE_CREATED) {
+    if (signal == interfaceCreatedSignal) {
         auto networkNode = getContainingNode(static_cast<cModule *>(source));
         if (nodeFilter.matches(networkNode)) {
             auto interfaceEntry = static_cast<InterfaceEntry *>(object);
@@ -238,17 +271,18 @@ void InterfaceTableVisualizerBase::receiveSignal(cComponent *source, simsignal_t
             }
         }
     }
-    else if (signal == NF_INTERFACE_DELETED) {
+    else if (signal == interfaceDeletedSignal) {
         auto networkNode = getContainingNode(static_cast<cModule *>(source));
         if (nodeFilter.matches(networkNode)) {
             auto interfaceEntry = static_cast<InterfaceEntry *>(object);
             if (interfaceFilter.matches(interfaceEntry)) {
                 auto interfaceVisualization = getInterfaceVisualization(networkNode, interfaceEntry);
                 removeInterfaceVisualization(interfaceVisualization);
+                delete interfaceVisualization;
             }
         }
     }
-    else if (signal == NF_INTERFACE_CONFIG_CHANGED || signal == NF_INTERFACE_IPv4CONFIG_CHANGED) {
+    else if (signal == interfaceConfigChangedSignal || signal == interfaceIpv4ConfigChangedSignal) {
         auto networkNode = getContainingNode(static_cast<cModule *>(source));
         if (object != nullptr && nodeFilter.matches(networkNode)) {
             auto interfaceEntryDetails = static_cast<InterfaceEntryChangeDetails *>(object);
@@ -256,7 +290,7 @@ void InterfaceTableVisualizerBase::receiveSignal(cComponent *source, simsignal_t
             auto fieldId = interfaceEntryDetails->getFieldId();
             if (fieldId == InterfaceEntry::F_IPV4_DATA
 #ifdef WITH_IPv4
-                    || fieldId == IPv4InterfaceData::F_IP_ADDRESS
+                    || fieldId == Ipv4InterfaceData::F_IP_ADDRESS || fieldId == Ipv4InterfaceData::F_NETMASK
 #endif // WITH_IPv4
                     ) {
                 if (interfaceFilter.matches(interfaceEntry)) {

@@ -27,9 +27,9 @@
 #include "inet/common/INETMath.h"
 #include "inet/common/PatternMatcher.h"
 #include "inet/common/Topology.h"
+#include "inet/networklayer/common/L3AddressResolver.h"
 #include "inet/networklayer/contract/IInterfaceTable.h"
 #include "inet/networklayer/contract/IRoutingTable.h"
-#include "inet/networklayer/common/L3AddressResolver.h"
 
 namespace inet {
 
@@ -91,7 +91,7 @@ class INET_API NetworkConfiguratorBase : public cSimpleModule, public L3AddressR
       public:
         InterfaceInfo(Node *node, LinkInfo *linkInfo, InterfaceEntry *interfaceEntry);
 
-        virtual std::string getFullPath() const override { return interfaceEntry->getFullPath(); }
+        virtual std::string getFullPath() const override { return interfaceEntry->getInterfaceFullPath(); }
     };
 
     /**
@@ -103,6 +103,7 @@ class INET_API NetworkConfiguratorBase : public cSimpleModule, public L3AddressR
       public:
         std::vector<InterfaceInfo *> interfaceInfos;    // interfaces on that LAN or point-to-point link
         InterfaceInfo *gatewayInterfaceInfo = nullptr;    // non-NULL if all hosts have 1 non-loopback interface except one host that has two of them (this will be the gateway)
+        int networkId = 0;
 
       public:
         LinkInfo() { }
@@ -157,6 +158,7 @@ class INET_API NetworkConfiguratorBase : public cSimpleModule, public L3AddressR
   protected:
     // parameters
     double minLinkWeight = NaN;
+    bool configureIsolatedNetworksSeparatly = false;
     cXMLElement *configuration = nullptr;
 
   protected:
@@ -182,7 +184,7 @@ class INET_API NetworkConfiguratorBase : public cSimpleModule, public L3AddressR
     virtual double computeWirelessLinkWeight(Link *link, const char *metric, cXMLElement *parameters);
     virtual bool isBridgeNode(Node *node);
     virtual bool isWirelessInterface(InterfaceEntry *interfaceEntry);
-    virtual const char *getWirelessId(InterfaceEntry *interfaceEntry);
+    virtual std::string getWirelessId(InterfaceEntry *interfaceEntry);
     virtual InterfaceInfo *createInterfaceInfo(Topology& topology, Node *node, LinkInfo *linkInfo, InterfaceEntry *interfaceEntry);
     virtual Topology::LinkOut *findLinkOut(Node *node, int gateId);
     virtual InterfaceInfo *findInterfaceInfo(Node *node, InterfaceEntry *interfaceEntry);

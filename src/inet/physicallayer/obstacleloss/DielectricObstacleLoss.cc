@@ -15,15 +15,17 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 
-#include "inet/common/geometry/base/ShapeBase.h"
-#include "inet/common/geometry/common/Rotation.h"
-#include "inet/common/geometry/object/LineSegment.h"
 #include "inet/common/ModuleAccess.h"
+#include "inet/common/geometry/base/ShapeBase.h"
+#include "inet/common/geometry/common/RotationMatrix.h"
+#include "inet/common/geometry/object/LineSegment.h"
 #include "inet/physicallayer/obstacleloss/DielectricObstacleLoss.h"
 
 namespace inet {
 
 namespace physicallayer {
+
+using namespace inet::physicalenvironment;
 
 Define_Module(DielectricObstacleLoss);
 
@@ -91,9 +93,9 @@ double DielectricObstacleLoss::computeObjectLoss(const IPhysicalObject *object, 
     double totalLoss = 1;
     const ShapeBase *shape = object->getShape();
     const Coord& position = object->getPosition();
-    const EulerAngles& orientation = object->getOrientation();
-    Rotation rotation(orientation);
-    const LineSegment lineSegment(rotation.rotateVectorCounterClockwise(transmissionPosition - position), rotation.rotateVectorCounterClockwise(receptionPosition - position));
+    const Quaternion& orientation = object->getOrientation();
+    RotationMatrix rotation(orientation.toEulerAngles());
+    const LineSegment lineSegment(rotation.rotateVectorInverse(transmissionPosition - position), rotation.rotateVectorInverse(receptionPosition - position));
     Coord intersection1, intersection2, normal1, normal2;
     intersectionComputationCount++;
     bool hasIntersections = shape->computeIntersection(lineSegment, intersection1, intersection2, normal1, normal2);

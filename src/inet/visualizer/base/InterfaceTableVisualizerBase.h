@@ -18,13 +18,13 @@
 #ifndef __INET_INTERFACETABLEVISUALIZERBASE_H
 #define __INET_INTERFACETABLEVISUALIZERBASE_H
 
-#include "inet/linklayer/common/MACAddress.h"
+#include "inet/common/StringFormat.h"
+#include "inet/linklayer/common/MacAddress.h"
 #include "inet/networklayer/common/InterfaceEntry.h"
 #include "inet/visualizer/base/VisualizerBase.h"
-#include "inet/visualizer/util/Displacement.h"
 #include "inet/visualizer/util/InterfaceFilter.h"
 #include "inet/visualizer/util/NetworkNodeFilter.h"
-#include "inet/visualizer/util/StringFormat.h"
+#include "inet/visualizer/util/Placement.h"
 
 namespace inet {
 
@@ -36,10 +36,11 @@ class INET_API InterfaceTableVisualizerBase : public VisualizerBase, public cLis
     class INET_API InterfaceVisualization {
       public:
         const int networkNodeId = -1;
+        const int networkNodeGateId = -1;
         const int interfaceId = -1;
 
       public:
-        InterfaceVisualization(int networkNodeId, int interfaceId);
+        InterfaceVisualization(int networkNodeId, int networkNodeGateId, int interfaceId);
         virtual ~InterfaceVisualization() {}
     };
 
@@ -63,8 +64,8 @@ class INET_API InterfaceTableVisualizerBase : public VisualizerBase, public cLis
     NetworkNodeFilter nodeFilter;
     InterfaceFilter interfaceFilter;
     StringFormat format;
-    Displacement displacementHint;
-    double displacementPriority;
+    Placement placementHint;
+    double placementPriority;
     cFigure::Font font;
     cFigure::Color textColor;
     cFigure::Color backgroundColor;
@@ -79,6 +80,10 @@ class INET_API InterfaceTableVisualizerBase : public VisualizerBase, public cLis
 
     virtual void subscribe();
     virtual void unsubscribe();
+
+    virtual cModule *getNetworkNode(const InterfaceVisualization *interfaceVisualization);
+    virtual cGate *getOutputGate(cModule *networkNode, InterfaceEntry *interfaceEntry);
+    virtual cGate *getOutputGate(const InterfaceVisualization *interfaceVisualization);
 
     virtual InterfaceVisualization *createInterfaceVisualization(cModule *networkNode, InterfaceEntry *interfaceEntry) = 0;
     virtual const InterfaceVisualization *getInterfaceVisualization(cModule *networkNode, InterfaceEntry *interfaceEntry);

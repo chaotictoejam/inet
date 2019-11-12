@@ -24,7 +24,7 @@ if [ "$BUILDID" = "" ]; then
 fi
 
 FILENAME=$INET_ROOT/inet-$BUILDID-src.tgz
-DIRNAME=inet
+DIRNAME=inet4
 
 rm -rf $INET_ROOT/out/$DIRNAME
 mkdir -p $INET_ROOT/out/$DIRNAME
@@ -39,7 +39,8 @@ echo "inet-$BUILDID" > $INET_ROOT/out/$DIRNAME/Version
 #cp -r doc/doxy $INET_ROOT/out/$DIRNAME/doc || { echo --- error copying generated docs ---; exit 1;}
 #cp -r doc/neddoc $INET_ROOT/out/$DIRNAME/doc || { echo --- error copying generated docs ---; exit 1;}
 #cp -r doc/index.html $INET_ROOT/out/$DIRNAME/doc || { echo --- error copying generated docs ---; exit 1;}
-cp -r doc/inet-manual*.pdf $INET_ROOT/out/$DIRNAME/doc || { echo --- error copying generated docs ---; exit 1;}
+(cd doc/src && make)
+cp -r doc/src/_build/latex/*.pdf $INET_ROOT/out/$DIRNAME/doc || { echo --- error copying generated docs ---; exit 1;}
 
 # switch to the destination dir
 cd $INET_ROOT/out/$DIRNAME
@@ -48,7 +49,7 @@ perl -i -pe $REGEXPREPLACE s/##BUILDID##/$BUILDID/g doc/neddoc/overview.html
 perl -i -pe $REGEXPREPLACE s/##BUILDID##/$BUILDID/g src/inet-index.ned
 
 # cleanup
-rm -rf _scripts obsolete doc/src
+rm -rf _scripts doc/src .gitattributes .gitignore .gitmodules .circleci .travis.yml .oppfeaturestate
 
 todofiles=`find . -name '__*'`
 if [ "$todofiles" != "" ]; then
@@ -56,8 +57,9 @@ if [ "$todofiles" != "" ]; then
     rm -rf $todofiles
 fi
 
-rm -rf showcases/doc showcases/*/doc showcases/*/*/doc
-rm -rf tutorials/doc tutorials/*/doc tutorials/*/*/doc
+# clean up the showcase and tutorial dir and remove the website text and videos to reduce package size
+(cd showcases && rm -rf _config.yml _docs */*/doc __TODO)
+(cd tutorials && rm -rf _config.yml _docs */doc __TODO _wireless-packetcounts)
 
 # pack and create tar.gz archives
 echo Creating $FILENAME.

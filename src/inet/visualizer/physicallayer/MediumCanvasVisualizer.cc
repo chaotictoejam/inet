@@ -15,18 +15,26 @@
 // along with this program; if not, see <http://www.gnu.org/licenses/>.
 //
 
+#include <algorithm>
+#include "inet/common/ModuleAccess.h"
 #include "inet/common/figures/LabeledIconFigure.h"
 #include "inet/common/figures/SignalFigure.h"
-#include "inet/common/ModuleAccess.h"
+
 #ifdef WITH_RADIO
-#include "inet/physicallayer/analogmodel/packetlevel/ScalarTransmission.h"
+#include "inet/physicallayer/analogmodel/packetlevel/DimensionalReception.h"
+#include "inet/physicallayer/analogmodel/packetlevel/DimensionalTransmission.h"
 #include "inet/physicallayer/analogmodel/packetlevel/ScalarReception.h"
+#include "inet/physicallayer/analogmodel/packetlevel/ScalarTransmission.h"
 #endif // WITH_RADIO
+
 #include "inet/visualizer/physicallayer/MediumCanvasVisualizer.h"
 
 namespace inet {
-
 namespace visualizer {
+
+#ifdef WITH_RADIO
+
+using namespace inet::physicallayer;
 
 Define_Module(MediumCanvasVisualizer);
 
@@ -52,7 +60,7 @@ void MediumCanvasVisualizer::initialize(int stage)
         signalWaveLength = par("signalWaveLength");
         signalWaveWidth = par("signalWaveWidth");
         signalWaveFadingAnimationSpeedFactor = par("signalWaveFadingAnimationSpeedFactor");
-        cCanvas *canvas = visualizerTargetModule->getCanvas();
+        cCanvas *canvas = visualizationTargetModule->getCanvas();
         if (displaySignals) {
             signalLayer = new cGroupFigure("communication");
             signalLayer->setZIndex(zIndex);
@@ -70,7 +78,7 @@ void MediumCanvasVisualizer::initialize(int stage)
         networkNodeVisualizer = getModuleFromPar<NetworkNodeCanvasVisualizer>(par("networkNodeVisualizerModule"), this);
     }
     else if (stage == INITSTAGE_LAST) {
-        canvasProjection = CanvasProjection::getCanvasProjection(visualizerTargetModule->getCanvas());
+        canvasProjection = CanvasProjection::getCanvasProjection(visualizationTargetModule->getCanvas());
         if (communicationHeat != nullptr) {
             const IMediumLimitCache *mediumLimitCache = radioMedium->getMediumLimitCache();
             Coord min = mediumLimitCache->getMinConstraintArea();
@@ -89,6 +97,29 @@ void MediumCanvasVisualizer::initialize(int stage)
             communicationHeat->setWidth(max.x - min.x);
             communicationHeat->setHeight(max.y - min.y);
         }
+        if (displaySpectrums) {
+            for (cModule::SubmoduleIterator it(visualizationSubjectModule); !it.end(); it++) {
+                auto networkNode = *it;
+                if (isNetworkNode(networkNode) && networkNodeFilter.matches(networkNode)) {
+                    auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
+                    auto plotFigure = new PlotFigure();
+                    plotFigure->setNumSeries(3);
+                    plotFigure->setLineColor(0, cFigure::parseColor("darkblue"));
+                    plotFigure->setLineColor(1, cFigure::parseColor("darkred"));
+                    plotFigure->setLineColor(2, cFigure::parseColor("darkgreen"));
+                    plotFigure->setXAxisLabel("[GHz]");
+                    plotFigure->setYAxisLabel("[dBmW/MHz]");
+                    plotFigure->setXValueFormat("%.3f");
+                    plotFigure->setYValueFormat("%.0f");
+                    plotFigure->setTags("spectrum");
+                    plotFigure->setTooltip("This plot represents the signal spectral power density");
+                    plotFigure->setZIndex(zIndex);
+                    plotFigure->setPlotSize(cFigure::Point(spectrumFigureWidth, spectrumFigureHeight));
+                    networkNodeVisualization->addAnnotation(plotFigure, plotFigure->getSize(), spectrumPlacementHint, spectrumPlacementPriority);
+                    spectrumFigures[networkNode] = plotFigure;
+                }
+            }
+        }
     }
 }
 
@@ -102,6 +133,199 @@ void MediumCanvasVisualizer::refreshDisplay() const
     }
     if (displayCommunicationHeat)
         communicationHeat->coolDown();
+    if (displaySpectrums)
+        for (auto it : spectrumFigures)
+            refreshSpectrumFigure(it.first, it.second);
+}
+
+void MediumCanvasVisualizer::refreshSpectrumFigure(const cModule *networkNode, PlotFigure *figure) const
+{
+    const ITransmission *transmissionInProgress;
+    const ITransmission *receptionInProgress;
+    const IAntenna *antenna;
+    IMobility *mobility;
+    std::tie(transmissionInProgress, receptionInProgress, antenna, mobility) = extractSpectrumFigureParameters(networkNode);
+    if (spectrumAutoFrequencyAxis) {
+        auto nonCostThisPtr = const_cast<MediumCanvasVisualizer *>(this);
+        if (transmissionInProgress != nullptr)
+            nonCostThisPtr->updateSpectrumFigureFrequencyBounds(transmissionInProgress);
+        if (receptionInProgress != nullptr)
+            nonCostThisPtr->updateSpectrumFigureFrequencyBounds(receptionInProgress);
+    }
+    if (spectrumMinFrequency < spectrumMaxFrequency) {
+        figure->clearValues(0);
+        figure->clearValues(1);
+        figure->clearValues(2);
+        auto position = mobility->getCurrentPosition();
+        if (receptionInProgress == nullptr)
+            refreshSpectrumFigurePowerFunction(mediumPowerFunction, antenna, position, figure, 0);
+        else {
+            const auto& signalPowerFunction = receptionPowerFunctions.find(receptionInProgress)->second;
+            // TODO: refactor to avoid rebuilding this all the time
+            auto noisePowerFunction = makeShared<SumFunction<WpHz, Domain<m, m, m, simsec, Hz>>>();
+            for (auto elementFunction : mediumPowerFunction->getElements())
+                if (elementFunction != signalPowerFunction)
+                    noisePowerFunction->addElement(elementFunction);
+            refreshSpectrumFigurePowerFunction(noisePowerFunction, antenna, position, figure, 1);
+            refreshSpectrumFigurePowerFunction(signalPowerFunction, antenna, position, figure, 2);
+        }
+        double minValue = wpHz2dBmWpMHz(WpHz(spectrumMinPower).get());
+        double maxValue = wpHz2dBmWpMHz(WpHz(spectrumMaxPower).get());
+        if (minValue < maxValue) {
+            double margin = 0.05 * (maxValue - minValue);
+            figure->setMinY(minValue - margin);
+            figure->setMaxY(maxValue + margin);
+            figure->setXTickCount(3);
+            figure->setYTickCount(5);
+        }
+        figure->refreshDisplay();
+    }
+}
+
+std::tuple<const ITransmission *, const ITransmission *, const IAntenna *, IMobility *> MediumCanvasVisualizer::extractSpectrumFigureParameters(const cModule *networkNode) const
+{
+    // TODO: what about multiple radios? what if it's not called wlan, this is quite accidental, etc.?
+    const IRadio *radio = dynamic_cast<const IRadio *>(networkNode);
+    if (radio == nullptr) {
+        auto wlan0 = networkNode->getSubmodule("wlan", 0);
+        if (wlan0 != nullptr)
+            radio = dynamic_cast<IRadio *>(wlan0->getSubmodule("radio"));
+    }
+    auto transmissionInProgress = radio != nullptr ? radio->getTransmissionInProgress() : nullptr;
+    auto receptionInProgress = radio != nullptr ? radio->getReceptionInProgress() : nullptr;
+    const IAntenna *antenna = nullptr;
+    if (radio != nullptr)
+        antenna = radio->getAntenna();
+    if (antenna == nullptr)
+        antenna = dynamic_cast<IAntenna *>(networkNode->getSubmodule("antenna"));
+    IMobility *mobility = nullptr;
+    if (antenna != nullptr)
+        mobility = antenna->getMobility();
+    else
+        mobility = check_and_cast<IMobility *>(networkNode->getSubmodule("mobility"));
+    return std::tuple<const ITransmission *, const ITransmission *, const IAntenna *, IMobility *>{transmissionInProgress, receptionInProgress, antenna, mobility};
+}
+
+void MediumCanvasVisualizer::refreshSpectrumFigurePowerFunction(const Ptr<const IFunction<WpHz, Domain<m, m, m, simsec, Hz>>>& powerFunction, const IAntenna *antenna, const Coord& position, PlotFigure *figure, int series) const
+{
+    auto nonCostThisPtr = const_cast<MediumCanvasVisualizer *>(this);
+    auto marginFrequency = 0.05 * (spectrumMaxFrequency - spectrumMinFrequency);
+    auto minFrequency = spectrumMinFrequency - marginFrequency;
+    auto maxFrequency = spectrumMaxFrequency + marginFrequency;
+    figure->setMinX(GHz(minFrequency).get());
+    figure->setMaxX(GHz(maxFrequency).get());
+    Point<m, m, m, simsec, Hz> l(m(position.x), m(position.y), m(position.z), simsec(simTime()), minFrequency);
+    Point<m, m, m, simsec, Hz> u(m(position.x), m(position.y), m(position.z), simsec(simTime()), maxFrequency);
+    Interval<m, m, m, simsec, Hz> i(l, u, 0b11110, 0b11110, 0b11110);
+    auto dx = GHz(maxFrequency - minFrequency).get() * spectrumFigureInterpolationSize / spectrumFigureWidth;
+    powerFunction->partition(i, [&] (const Interval<m, m, m, simsec, Hz>& j, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *partitonPowerFunction) {
+        ASSERT((dynamic_cast<const ConstantFunction<WpHz, Domain<m, m, m, simsec, Hz>> *>(partitonPowerFunction) != nullptr || dynamic_cast<const UnilinearFunction<WpHz, Domain<m, m, m, simsec, Hz>> *>(partitonPowerFunction) != nullptr));
+        auto lower = j.getLower();
+        auto upper = j.getUpper();
+        // NOTE: the interval is closed at the lower boundary and open at the upper boundary
+        //       we want to have the limit of the function's value at the upper boundary from the left
+        if (std::get<4>(upper) != std::get<4>(lower))
+            std::get<4>(upper) = Hz(std::nextafter(std::get<4>(upper).get(), std::get<4>(lower).get()));
+        WpHz power1;
+        WpHz power2;
+        std::tie(power1, power2) = computePowerForPartitionBounds(powerFunction, lower, upper, partitonPowerFunction, antenna, position);
+        // TODO: the function f is assumed to be constant or linear between l1 and u1 but on a logarithmic axis the plot is non-linear
+        // TODO: the following interpolation should be part of the PlotFigure along with logarithmic axis support
+        auto x1 = GHz(std::get<4>(lower)).get();
+        auto x2 = GHz(std::get<4>(upper)).get();
+        for (double x = x1; x < x2; x += dx) {
+            double xi = x;
+            double xj = std::min(x2, x + dx);
+            double ai = (xi - x1) / (x2 - x1);
+            double aj = (xj - x1) / (x2 - x1);
+            auto yi = power1 * (1 - ai) + power2 * ai;
+            auto yj = power1 * (1 - aj) + power2 * aj;
+            figure->setValue(series, xi, wpHz2dBmWpMHz(WpHz(yi).get()));
+            figure->setValue(series, xj, wpHz2dBmWpMHz(WpHz(yj).get()));
+        }
+        if (spectrumAutoPowerAxis)
+            nonCostThisPtr->updateSpectrumFigurePowerBounds(j, partitonPowerFunction);
+    });
+}
+
+std::pair<WpHz, WpHz> MediumCanvasVisualizer::computePowerForPartitionBounds(const Ptr<const IFunction<WpHz, Domain<m, m, m, simsec, Hz>>>& powerFunction, const math::Point<m, m, m, simsec, Hz>& lower, const math::Point<m, m, m, simsec, Hz>& upper, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *partitonPowerFunction, const IAntenna *antenna, const Coord& position) const
+{
+    WpHz totalPower1;
+    WpHz totalPower2;
+    if (antenna != nullptr && antenna->isDirectional()) {
+        if (auto sumFunction = dynamicPtrCast<const SumFunction<WpHz, Domain<m, m, m, simsec, Hz>>>(powerFunction)) {
+            totalPower1 = WpHz(0);
+            totalPower2 = WpHz(0);
+            for (auto elementFunction : sumFunction->getElements()) {
+                WpHz p1;
+                WpHz p2;
+                std::tie(p1, p2) = computePowerForDirectionalAntenna(elementFunction, lower, upper, antenna, position);
+                totalPower1 += p1;
+                totalPower2 += p2;
+            }
+        }
+        else
+            std::tie(totalPower1, totalPower2) = computePowerForDirectionalAntenna(powerFunction, lower, upper, antenna, position);
+    }
+    else {
+        totalPower1 = partitonPowerFunction->getValue(lower);
+        totalPower2 = partitonPowerFunction->getValue(upper);
+    }
+    ASSERT(!std::isnan(totalPower1.get()));
+    ASSERT(!std::isnan(totalPower2.get()));
+    return {totalPower1, totalPower2};
+}
+
+std::pair<WpHz, WpHz> MediumCanvasVisualizer::computePowerForDirectionalAntenna(const Ptr<const IFunction<WpHz, Domain<m, m, m, simsec, Hz>>>& powerFunction, const math::Point<m, m, m, simsec, Hz>& lower, const math::Point<m, m, m, simsec, Hz>& upper, const IAntenna *antenna, const Coord& position) const
+{
+    if (auto rf = dynamicPtrCast<const MultiplicationFunction<WpHz, Domain<m, m, m, simsec, Hz>>>(powerFunction)) {
+        if (auto tf = dynamicPtrCast<const PropagatedTransmissionPowerFunction>(rf->getF1())) {
+            const Point<m, m, m>& startPosition = tf->getStartPosition();
+            double dx = std::get<0>(startPosition).get() - position.x;
+            double dy = std::get<1>(startPosition).get() - position.y;
+            double dz = std::get<2>(startPosition).get() - position.z;
+            double gain = 1;
+            if (dx != 0 || dy != 0 || dz != 0) {
+                const Quaternion& startOrientation = antenna->getMobility()->getCurrentAngularPosition();
+                auto direction = Quaternion::rotationFromTo(Coord::X_AXIS, Coord(dx, dy, dz));
+                auto antennaLocalDirection = startOrientation.inverse() * direction;
+                gain = antenna->getGain()->computeGain(antennaLocalDirection);
+            }
+            WpHz power1 = gain * powerFunction->getValue(lower);
+            WpHz power2 = gain * powerFunction->getValue(upper);
+            ASSERT(!std::isnan(power1.get()));
+            ASSERT(!std::isnan(power2.get()));
+            return {power1, power2};
+        }
+    }
+    WpHz power1 = powerFunction->getValue(lower);
+    WpHz power2 = powerFunction->getValue(upper);
+    ASSERT(!std::isnan(power1.get()));
+    ASSERT(!std::isnan(power2.get()));
+    return {power1, power2};
+}
+
+void MediumCanvasVisualizer::updateSpectrumFigureFrequencyBounds(const ITransmission *transmission)
+{
+    if (auto dimensionalTransmission = dynamic_cast<const DimensionalTransmission *>(transmission)) {
+        const auto& powerFunction = dimensionalTransmission->getPower();
+        powerFunction->partition(powerFunction->getDomain(), [&] (const Interval<simsec, Hz>& i, const IFunction<WpHz, Domain<simsec, Hz>> *f) {
+            if (auto constantFunction = dynamic_cast<const ConstantFunction<WpHz, Domain<simsec, Hz>> *>(f)) {
+                if (constantFunction->getConstantValue() == WpHz(0))
+                    return;
+            }
+            spectrumMinFrequency = std::min(spectrumMinFrequency, std::get<1>(i.getLower()));
+            spectrumMaxFrequency = std::max(spectrumMaxFrequency, std::get<1>(i.getUpper()));
+        });
+    }
+}
+
+void MediumCanvasVisualizer::updateSpectrumFigurePowerBounds(const Interval<m, m, m, simsec, Hz>& i, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *f)
+{
+    WpHz minPower = f->getMin(i);
+    if (minPower > WpHz(0))
+        spectrumMinPower = std::min(spectrumMinPower, minPower);
+    spectrumMaxPower = std::max(spectrumMaxPower, f->getMax(i));
 }
 
 void MediumCanvasVisualizer::setAnimationSpeed()
@@ -159,55 +383,55 @@ void MediumCanvasVisualizer::setAnimationSpeed()
     lastSignalInProgress = newSignalInProgress;
     double animationSpeed = animationSpeedInterpolator.getCurrentAnimationSpeed();
     ASSERT(!std::isnan(animationSpeed));
-    visualizerTargetModule->getCanvas()->setAnimationSpeed(animationSpeed, this);
+    visualizationTargetModule->getCanvas()->setAnimationSpeed(animationSpeed, this);
 }
 
-cFigure *MediumCanvasVisualizer::getTransmissionFigure(const IRadio *radio) const
+cFigure *MediumCanvasVisualizer::getSignalDepartureFigure(const IRadio *radio) const
 {
-    auto it = transmissionFigures.find(radio);
-    if (it == transmissionFigures.end())
+    auto it = signalDepartureFigures.find(radio);
+    if (it == signalDepartureFigures.end())
         return nullptr;
     else
         return it->second;
 }
 
-void MediumCanvasVisualizer::setTransmissionFigure(const IRadio *radio, cFigure *figure)
+void MediumCanvasVisualizer::setSignalDepartureFigure(const IRadio *radio, cFigure *figure)
 {
-    transmissionFigures[radio] = figure;
+    signalDepartureFigures[radio] = figure;
 }
 
-cFigure *MediumCanvasVisualizer::removeTransmissionFigure(const IRadio *radio)
+cFigure *MediumCanvasVisualizer::removeSignalDepartureFigure(const IRadio *radio)
 {
-    auto it = transmissionFigures.find(radio);
-    if (it == transmissionFigures.end())
+    auto it = signalDepartureFigures.find(radio);
+    if (it == signalDepartureFigures.end())
         return nullptr;
     else {
-        transmissionFigures.erase(it);
+        signalDepartureFigures.erase(it);
         return it->second;
     }
 }
 
-cFigure *MediumCanvasVisualizer::getReceptionFigure(const IRadio *radio) const
+cFigure *MediumCanvasVisualizer::getSignalArrivalFigure(const IRadio *radio) const
 {
-    auto it = receptionFigures.find(radio);
-    if (it == receptionFigures.end())
+    auto it = signalArrivalFigures.find(radio);
+    if (it == signalArrivalFigures.end())
         return nullptr;
     else
         return it->second;
 }
 
-void MediumCanvasVisualizer::setReceptionFigure(const IRadio *radio, cFigure *figure)
+void MediumCanvasVisualizer::setSignalArrivalFigure(const IRadio *radio, cFigure *figure)
 {
-    receptionFigures[radio] = figure;
+    signalArrivalFigures[radio] = figure;
 }
 
-cFigure *MediumCanvasVisualizer::removeReceptionFigure(const IRadio *radio)
+cFigure *MediumCanvasVisualizer::removeSignalArrivalFigure(const IRadio *radio)
 {
-    auto it = receptionFigures.find(radio);
-    if (it == receptionFigures.end())
+    auto it = signalArrivalFigures.find(radio);
+    if (it == signalArrivalFigures.end())
         return nullptr;
     else {
-        receptionFigures.erase(it);
+        signalArrivalFigures.erase(it);
         return it->second;
     }
 }
@@ -239,7 +463,7 @@ cFigure *MediumCanvasVisualizer::removeSignalFigure(const ITransmission *transmi
 
 cGroupFigure* MediumCanvasVisualizer::createSignalFigure(const ITransmission* transmission) const
 {
-    cFigure::Point position = canvasProjection->computeCanvasPoint( transmission->getStartPosition());
+    cFigure::Point position = canvasProjection->computeCanvasPoint(transmission->getStartPosition());
     cGroupFigure* groupFigure = new cGroupFigure("signal");
     cFigure::Color color = signalColorSet.getColor(transmission->getId());
     SignalFigure* signalFigure = new SignalFigure("bubble");
@@ -261,7 +485,9 @@ cGroupFigure* MediumCanvasVisualizer::createSignalFigure(const ITransmission* tr
     cLabelFigure* nameFigure = new cLabelFigure("packet name");
     nameFigure->setPosition(position);
     nameFigure->setTags((std::string("propagating_signal packet_name label ") + tags).c_str());
-    nameFigure->setText(transmission->getMacFrame()->getName());
+    auto packet = transmission->getPacket();
+    if (packet != nullptr)
+        nameFigure->setText(packet->getName());
     nameFigure->setColor(color);
     groupFigure->addFigure(nameFigure);
     return groupFigure;
@@ -279,12 +505,12 @@ void MediumCanvasVisualizer::refreshSignalFigure(const ITransmission *transmissi
         double phi = transmission->getId();
         labelFigure->setTransform(cFigure::Transform().translate(endRadius * sin(phi), endRadius * cos(phi)));
         const Coord transmissionStart = transmission->getStartPosition();
-        // KLUDGE: to workaround overflow bugs in drawing
+        // KLUDGE: to workaround overflow bugs in drawing, Tkenv?
         double offset = std::fmod(startRadius, signalFigure->getWaveLength());
-        if (startRadius > 10000)
-            startRadius = 10000;
-        if (endRadius > 10000)
-            endRadius = 10000;
+//        if (startRadius > 10000)
+//            startRadius = 10000;
+//        if (endRadius > 10000)
+//            endRadius = 10000;
         switch (signalShape) {
             case SIGNAL_SHAPE_RING: {
                 // determine the rotated 2D canvas points by computing the 2D affine transformation from the 3D transformation of the environment
@@ -321,14 +547,16 @@ void MediumCanvasVisualizer::refreshSignalFigure(const ITransmission *transmissi
     }
 }
 
-void MediumCanvasVisualizer::radioAdded(const IRadio *radio)
+void MediumCanvasVisualizer::handleRadioAdded(const IRadio *radio)
 {
     Enter_Method_Silent();
     auto module = check_and_cast<const cModule *>(radio);
     auto networkNode = getContainingNode(module);
     if (networkNodeFilter.matches(networkNode)) {
+        auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
+        if (networkNodeVisualization == nullptr)
+            throw cRuntimeError("Cannot create medium visualization for '%s', because network node visualization is not found for '%s'", module->getFullPath().c_str(), networkNode->getFullPath().c_str());
         if (displayInterferenceRanges || (module->hasPar("displayInterferenceRange") && module->par("displayInterferenceRange"))) {
-            auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
             auto interferenceRangeFigure = new cOvalFigure("interferenceRange");
             m maxInterferenceRange = check_and_cast<const IRadioMedium *>(radio->getMedium())->getMediumLimitCache()->getMaxInterferenceRange(radio);
             interferenceRangeFigure->setTags((std::string("interference_range ") + tags).c_str());
@@ -340,7 +568,6 @@ void MediumCanvasVisualizer::radioAdded(const IRadio *radio)
             networkNodeVisualization->addFigure(interferenceRangeFigure);
         }
         if (displayCommunicationRanges || (module->hasPar("displayCommunicationRange") && module->par("displayCommunicationRange"))) {
-            auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
             auto communicationRangeFigure = new cOvalFigure("communicationRange");
             m maxCommunicationRange = check_and_cast<const IRadioMedium *>(radio->getMedium())->getMediumLimitCache()->getMaxCommunicationRange(radio);
             communicationRangeFigure->setTags((std::string("communication_range ") + tags).c_str());
@@ -351,50 +578,49 @@ void MediumCanvasVisualizer::radioAdded(const IRadio *radio)
             communicationRangeFigure->setLineWidth(communicationRangeLineWidth);
             networkNodeVisualization->addFigure(communicationRangeFigure);
         }
-        if (displayTransmissions || displayReceptions) {
-            auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
-            if (displayTransmissions) {
-                std::string imageName = par("transmissionImage");
-                auto transmissionFigure = new LabeledIconFigure("transmission");
-                transmissionFigure->setTags((std::string("transmission ") + tags).c_str());
-                transmissionFigure->setTooltip("This icon represents an ongoing transmission in a wireless interface");
-                transmissionFigure->setVisible(false);
-                auto iconFigure = transmissionFigure->getIconFigure();
+        if (displaySignalDepartures || displaySignalArrivals) {
+            if (displaySignalDepartures) {
+                std::string imageName = par("signalDepartureImage");
+                auto signalDepartureFigure = new LabeledIconFigure("signalDeparture");
+                signalDepartureFigure->setTags((std::string("signal_departure ") + tags).c_str());
+                signalDepartureFigure->setTooltip("This icon represents an ongoing signal departure");
+                signalDepartureFigure->setVisible(false);
+                auto iconFigure = signalDepartureFigure->getIconFigure();
                 iconFigure->setImageName(imageName.substr(0, imageName.find_first_of(".")).c_str());
                 iconFigure->setAnchor(cFigure::ANCHOR_NW);
-                auto labelFigure = transmissionFigure->getLabelFigure();
+                auto labelFigure = signalDepartureFigure->getLabelFigure();
                 labelFigure->setPosition(iconFigure->getBounds().getSize() / 2);
-                networkNodeVisualization->addAnnotation(transmissionFigure, transmissionFigure->getBounds().getSize(), transmissionDisplacementHint, transmissionDisplacementPriority);
-                setTransmissionFigure(radio, transmissionFigure);
+                networkNodeVisualization->addAnnotation(signalDepartureFigure, signalDepartureFigure->getBounds().getSize(), signalDeparturePlacementHint, signalDeparturePlacementPriority);
+                setSignalDepartureFigure(radio, signalDepartureFigure);
             }
-            if (displayReceptions) {
-                std::string imageName = par("receptionImage");
-                auto receptionFigure = new LabeledIconFigure("reception");
-                receptionFigure->setTags((std::string("reception ") + tags).c_str());
-                receptionFigure->setTooltip("This icon represents an ongoing reception in a wireless interface");
-                receptionFigure->setVisible(false);
-                auto iconFigure = receptionFigure->getIconFigure();
+            if (displaySignalArrivals) {
+                std::string imageName = par("signalArrivalImage");
+                auto signalArrivalFigure = new LabeledIconFigure("signalArrival");
+                signalArrivalFigure->setTags((std::string("signal_arrival ") + tags).c_str());
+                signalArrivalFigure->setTooltip("This icon represents an ongoing signal arrival");
+                signalArrivalFigure->setVisible(false);
+                auto iconFigure = signalArrivalFigure->getIconFigure();
                 iconFigure->setImageName(imageName.substr(0, imageName.find_first_of(".")).c_str());
                 iconFigure->setAnchor(cFigure::ANCHOR_NW);
-                auto labelFigure = receptionFigure->getLabelFigure();
+                auto labelFigure = signalArrivalFigure->getLabelFigure();
                 labelFigure->setPosition(iconFigure->getBounds().getSize() / 2);
-                networkNodeVisualization->addAnnotation(receptionFigure, receptionFigure->getBounds().getSize(), receptionDisplacementHint, receptionDisplacementPriority);
-                setReceptionFigure(radio, receptionFigure);
+                networkNodeVisualization->addAnnotation(signalArrivalFigure, signalArrivalFigure->getBounds().getSize(), signalArrivalPlacementHint, signalArrivalPlacementPriority);
+                setSignalArrivalFigure(radio, signalArrivalFigure);
             }
         }
     }
 }
 
-void MediumCanvasVisualizer::radioRemoved(const IRadio *radio)
+void MediumCanvasVisualizer::handleRadioRemoved(const IRadio *radio)
 {
     Enter_Method_Silent();
-    auto transmissionFigure = removeTransmissionFigure(radio);
+    auto transmissionFigure = removeSignalDepartureFigure(radio);
     if (transmissionFigure != nullptr) {
         auto module = const_cast<cModule *>(check_and_cast<const cModule *>(radio));
         auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(getContainingNode(module));
         networkNodeVisualization->removeAnnotation(transmissionFigure);
     }
-    auto figure = removeReceptionFigure(radio);
+    auto figure = removeSignalArrivalFigure(radio);
     if (figure != nullptr) {
         auto module = const_cast<cModule *>(check_and_cast<const cModule *>(radio));
         auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(getContainingNode(module));
@@ -402,9 +628,10 @@ void MediumCanvasVisualizer::radioRemoved(const IRadio *radio)
     }
 }
 
-void MediumCanvasVisualizer::transmissionAdded(const ITransmission *transmission)
+void MediumCanvasVisualizer::handleSignalAdded(const ITransmission *transmission)
 {
     Enter_Method_Silent();
+    MediumVisualizerBase::handleSignalAdded(transmission);
     if (displaySignals && matchesTransmission(transmission)) {
         transmissions.push_back(transmission);
         cGroupFigure *signalFigure = createSignalFigure(transmission);
@@ -414,9 +641,10 @@ void MediumCanvasVisualizer::transmissionAdded(const ITransmission *transmission
     }
 }
 
-void MediumCanvasVisualizer::transmissionRemoved(const ITransmission *transmission)
+void MediumCanvasVisualizer::handleSignalRemoved(const ITransmission *transmission)
 {
     Enter_Method_Silent();
+    MediumVisualizerBase::handleSignalRemoved(transmission);
     if (displaySignals && matchesTransmission(transmission)) {
         transmissions.erase(std::remove(transmissions.begin(), transmissions.end(), transmission));
         cFigure *signalFigure = getSignalFigure(transmission);
@@ -427,41 +655,41 @@ void MediumCanvasVisualizer::transmissionRemoved(const ITransmission *transmissi
     }
 }
 
-void MediumCanvasVisualizer::transmissionStarted(const ITransmission *transmission)
+void MediumCanvasVisualizer::handleSignalDepartureStarted(const ITransmission *transmission)
 {
     Enter_Method_Silent();
     if (matchesTransmission(transmission)) {
         if (displaySignals)
             setAnimationSpeed();
-        if (displayTransmissions) {
+        if (displaySignalDepartures) {
             auto transmitter = transmission->getTransmitter();
-            auto figure = getTransmissionFigure(transmitter);
+            if (!transmitter) return;
+            auto figure = getSignalDepartureFigure(transmitter);
             auto networkNode = getContainingNode(check_and_cast<const cModule *>(transmitter));
             auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
             networkNodeVisualization->setAnnotationVisible(figure, true);
             auto labelFigure = check_and_cast<LabeledIconFigure *>(figure)->getLabelFigure();
-#ifdef WITH_RADIO
             if (auto scalarTransmission = dynamic_cast<const ScalarTransmission *>(transmission)) {
                 char tmp[32];
-                sprintf(tmp, "%.4g dBW", inet::math::fraction2dB(W(scalarTransmission->getPower()).get()));
+                sprintf(tmp, "%.4g dBW", fraction2dB(W(scalarTransmission->getPower()).get()));
                 labelFigure->setText(tmp);
             }
             else
-#endif // WITH_RADIO
                 labelFigure->setText("");
         }
     }
 }
 
-void MediumCanvasVisualizer::transmissionEnded(const ITransmission *transmission)
+void MediumCanvasVisualizer::handleSignalDepartureEnded(const ITransmission *transmission)
 {
     Enter_Method_Silent();
     if (matchesTransmission(transmission)) {
         if (displaySignals)
             setAnimationSpeed();
-        if (displayTransmissions) {
+        if (displaySignalDepartures) {
             auto transmitter = transmission->getTransmitter();
-            auto figure = getTransmissionFigure(transmitter);
+            if (!transmitter) return;
+            auto figure = getSignalDepartureFigure(transmitter);
             auto networkNode = getContainingNode(check_and_cast<const cModule *>(transmitter));
             auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
             networkNodeVisualization->setAnnotationVisible(figure, false);
@@ -469,28 +697,26 @@ void MediumCanvasVisualizer::transmissionEnded(const ITransmission *transmission
     }
 }
 
-void MediumCanvasVisualizer::receptionStarted(const IReception *reception)
+void MediumCanvasVisualizer::handleSignalArrivalStarted(const IReception *reception)
 {
     Enter_Method_Silent();
     if (matchesTransmission(reception->getTransmission())) {
         if (displaySignals)
             setAnimationSpeed();
-        if (displayReceptions) {
+        if (displaySignalArrivals) {
             auto receiver = reception->getReceiver();
             if (networkNodeFilter.matches(check_and_cast<const cModule *>(receiver))) {
-                auto figure = getReceptionFigure(receiver);
+                auto figure = getSignalArrivalFigure(receiver);
                 auto networkNode = getContainingNode(check_and_cast<const cModule *>(receiver));
                 auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
                 networkNodeVisualization->setAnnotationVisible(figure, true);
                 auto labelFigure = check_and_cast<LabeledIconFigure *>(figure)->getLabelFigure();
-#ifdef WITH_RADIO
                 if (auto scalarReception = dynamic_cast<const ScalarReception *>(reception)) {
                     char tmp[32];
-                    sprintf(tmp, "%.4g dBW", inet::math::fraction2dB(W(scalarReception->getPower()).get()));
+                    sprintf(tmp, "%.4g dBW", fraction2dB(W(scalarReception->getPower()).get()));
                     labelFigure->setText(tmp);
                 }
                 else
-#endif // WITH_RADIO
                     labelFigure->setText("");
             }
         }
@@ -509,16 +735,16 @@ void MediumCanvasVisualizer::receptionStarted(const IReception *reception)
     }
 }
 
-void MediumCanvasVisualizer::receptionEnded(const IReception *reception)
+void MediumCanvasVisualizer::handleSignalArrivalEnded(const IReception *reception)
 {
     Enter_Method_Silent();
     if (matchesTransmission(reception->getTransmission())) {
         if (displaySignals)
             setAnimationSpeed();
-        if (displayReceptions) {
+        if (displaySignalArrivals) {
             auto receiver = reception->getReceiver();
             if (networkNodeFilter.matches(check_and_cast<const cModule *>(receiver))) {
-                auto figure = getReceptionFigure(receiver);
+                auto figure = getSignalArrivalFigure(receiver);
                 auto networkNode = getContainingNode(check_and_cast<const cModule *>(receiver));
                 auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
                 networkNodeVisualization->setAnnotationVisible(figure, false);
@@ -527,7 +753,8 @@ void MediumCanvasVisualizer::receptionEnded(const IReception *reception)
     }
 }
 
-} // namespace visualizer
+#endif // WITH_RADIO
 
+} // namespace visualizer
 } // namespace inet
 

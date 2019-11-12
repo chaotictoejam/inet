@@ -1,4 +1,5 @@
-%description: Tests interface state transitions of IGMP routers
+%description:
+Tests interface state transitions of IGMP routers
 
                                      --------------------------------
                               _______|________  gen. query timer      |
@@ -51,7 +52,7 @@ output-vector-file = "${resultdir}/${configname}-${runnumber}.vec"
 snapshot-file = "${resultdir}/${configname}-${runnumber}.sna"
 
 network=IGMPTestNetwork
-**.igmpType = "TestIGMP"
+**.igmp.typename = "TestIGMP"
 
 **.scenarioManager.script = xmldoc("scenario.xml")
 **.nqrouter.*.igmp.outputFile = "nqrouter-output.txt"
@@ -61,7 +62,7 @@ network=IGMPTestNetwork
 
 %file: scenario.xml
 <scenario>
-<disable t="101" module="router.networkLayer.igmp"/>
+<disable t="101" module="router.ipv4.igmp"/>
 </scenario>
 
 %contains-regex: nqrouter-output.txt

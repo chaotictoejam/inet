@@ -42,10 +42,11 @@ Ieee8021dInterfaceData::PortInfo::PortInfo()
 }
 
 Ieee8021dInterfaceData::Ieee8021dInterfaceData()
+    : InterfaceProtocolData(InterfaceEntry::F_IEEE8021D_DATA)
 {
 }
 
-std::string Ieee8021dInterfaceData::info() const
+std::string Ieee8021dInterfaceData::str() const
 {
     std::stringstream out;
     out << "role:" << getRoleName() << " state:" << getStateName();

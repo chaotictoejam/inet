@@ -16,6 +16,7 @@
 //
 
 #include <algorithm>
+
 #include "inet/common/INETMath.h"
 #include "inet/common/figures/BoxedLabelFigure.h"
 #include "inet/visualizer/scene/NetworkNodeCanvasVisualization.h"
@@ -24,31 +25,35 @@ namespace inet {
 
 namespace visualizer {
 
-NetworkNodeCanvasVisualization::Annotation::Annotation(cFigure *figure, const cFigure::Point& size, Displacement displacementHint, double displacementPriority) :
+NetworkNodeCanvasVisualization::Annotation::Annotation(cFigure *figure, const cFigure::Point& size, Placement placementHint, double placementPriority) :
     figure(figure),
     bounds(cFigure::Rectangle(NaN, NaN, size.x, size.y)),
-    displacementHint(displacementHint),
-    displacementPriority(displacementPriority)
+    placementHint(placementHint),
+    placementPriority(placementPriority)
 {
 }
 
-static BoxedLabelFigure *createRectangle(const char *label) {
-    auto figure = new BoxedLabelFigure();
-    figure->setText(label);
-    return figure;
-}
-
-NetworkNodeCanvasVisualization::NetworkNodeCanvasVisualization(cModule *networkNode, double annotationSpacing, double displacementPenalty) :
+NetworkNodeCanvasVisualization::NetworkNodeCanvasVisualization(cModule *networkNode, double annotationSpacing, double placementPenalty) :
+    NetworkNodeVisualizerBase::NetworkNodeVisualization(networkNode),
     cGroupFigure(networkNode->getFullName()),
-    networkNode(networkNode),
     annotationSpacing(annotationSpacing),
-    displacementPenalty(displacementPenalty)
+    placementPenalty(placementPenalty)
 {
     annotationFigure = new cPanelFigure("annotation");
     addFigure(annotationFigure);
     submoduleBounds = getEnvir()->getSubmoduleBounds(networkNode);
     submoduleBounds.x = -submoduleBounds.width / 2;
     submoduleBounds.y = -submoduleBounds.height / 2;
+    if (networkNode->hasPar("canvasImage") && strlen(networkNode->par("canvasImage")) != 0) {
+        auto imageFigure = new cImageFigure("node");
+        imageFigure->setTooltip("This image represents a network node");
+        imageFigure->setTooltip("");
+        imageFigure->setAssociatedObject(networkNode);
+        imageFigure->setImageName(networkNode->par("canvasImage"));
+        if (networkNode->hasPar("canvasImageColor") && strlen(networkNode->par("canvasImageColor")) != 0)
+            imageFigure->setTintColor(cFigure::parseColor(networkNode->par("canvasImageColor")));
+        addFigure(imageFigure);
+    }
 }
 
 void NetworkNodeCanvasVisualization::refreshDisplay()
@@ -59,9 +64,9 @@ void NetworkNodeCanvasVisualization::refreshDisplay()
     }
 }
 
-void NetworkNodeCanvasVisualization::addAnnotation(cFigure *figure, cFigure::Point size, Displacement displacementHint, double displacementPriority)
+void NetworkNodeCanvasVisualization::addAnnotation(cFigure *figure, cFigure::Point size, Placement placementHint, double placementPriority)
 {
-    annotations.push_back(Annotation(figure, size, displacementHint, displacementPriority));
+    annotations.push_back(Annotation(figure, size, placementHint, placementPriority));
     annotationFigure->addFigure(figure);
     isLayoutInvalid = true;
 }
@@ -150,8 +155,7 @@ static cFigure::Rectangle createRectangle(const cFigure::Point& pt, const cFigur
 
 static void pushUnlessContains(std::vector<cFigure::Point>& pts, const std::vector<cFigure::Rectangle>& rcs, const cFigure::Point& pt)
 {
-    for (int j = 0; j < (int)rcs.size(); j++) {
-        cFigure::Rectangle rc = rcs[j];
+    for (const auto& rc: rcs) {
         if (containsPoint(rc, pt))
             return;
     }
@@ -179,30 +183,30 @@ static double getDistance(const cFigure::Rectangle& rc, const cFigure::Point& pt
         return 0;
 }
 
-static double getClosestDisplacementDistance(const cFigure::Rectangle& rc, Displacement displacement, const cFigure::Point& pt) {
+static double getClosestPlacementDistance(const cFigure::Rectangle& rc, Placement placement, const cFigure::Point& pt) {
     double size = 1000;
     double distance = std::numeric_limits<double>::infinity();
-    if (displacement & DISPLACEMENT_TOP_LEFT)
+    if (placement & PLACEMENT_TOP_LEFT)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x - size, rc.y - size, size, size), pt));
-    if (displacement & DISPLACEMENT_TOP_CENTER)
+    if (placement & PLACEMENT_TOP_CENTER)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x, rc.y - size, rc.width, size), pt));
-    if (displacement & DISPLACEMENT_TOP_RIGHT)
+    if (placement & PLACEMENT_TOP_RIGHT)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x + rc.width, rc.y - size, size, size), pt));
-    if (displacement & DISPLACEMENT_CENTER_LEFT)
+    if (placement & PLACEMENT_CENTER_LEFT)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x - size, rc.y, size, rc.height), pt));
-    if (displacement & DISPLACEMENT_CENTER_RIGHT)
+    if (placement & PLACEMENT_CENTER_RIGHT)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x + rc.width, rc.y, size, rc.height), pt));
-    if (displacement & DISPLACEMENT_BOTTOM_LEFT)
+    if (placement & PLACEMENT_BOTTOM_LEFT)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x - size, rc.y + rc.height, size, size), pt));
-    if (displacement & DISPLACEMENT_BOTTOM_CENTER)
+    if (placement & PLACEMENT_BOTTOM_CENTER)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x, rc.y + rc.height, rc.width, size), pt));
-    if (displacement & DISPLACEMENT_BOTTOM_RIGHT)
+    if (placement & PLACEMENT_BOTTOM_RIGHT)
         distance = std::min(distance, getDistance(cFigure::Rectangle(rc.x + rc.width, rc.y + rc.height, size, size), pt));
     return distance;
 }
 
-bool NetworkNodeCanvasVisualization::Annotation::compareDisplacementPriority(const Annotation& a1, const Annotation& a2) {
-    return a1.displacementPriority < a2.displacementPriority;
+bool NetworkNodeCanvasVisualization::Annotation::comparePlacementPriority(const Annotation& a1, const Annotation& a2) {
+    return a1.placementPriority < a2.placementPriority;
 }
 
 void NetworkNodeCanvasVisualization::layout()
@@ -224,7 +228,7 @@ void NetworkNodeCanvasVisualization::layout()
     pts.push_back(getBottomCenter(extendendSubmoduleBounds));
     pts.push_back(getBottomRight(extendendSubmoduleBounds));
 
-    std::sort(annotations.begin(), annotations.end(), Annotation::compareDisplacementPriority);
+    std::sort(annotations.begin(), annotations.end(), Annotation::comparePlacementPriority);
 
     // delete all annotation positions
     for (auto it = annotations.begin(); it != annotations.end(); it++) {
@@ -244,9 +248,7 @@ void NetworkNodeCanvasVisualization::layout()
         cFigure::Rectangle bestRc;
 
         // for all candidate points
-        for (int j = 0; j < (int)pts.size(); j++) {
-            cFigure::Point pt = pts[j];
-
+        for (auto pt: pts) {
             // align annotation to candidate points with its various points
             for (int k = 0; k < 8; k++) {
                 cFigure::Rectangle candidateRc;
@@ -286,15 +288,14 @@ void NetworkNodeCanvasVisualization::layout()
                 }
 
                 double distance = 0;
-                distance += getClosestDisplacementDistance(submoduleBounds, annotation.displacementHint, getTopLeft(candidateRc)) * displacementPenalty;
-                distance += getClosestDisplacementDistance(submoduleBounds, annotation.displacementHint, getTopRight(candidateRc)) * displacementPenalty;
-                distance += getClosestDisplacementDistance(submoduleBounds, annotation.displacementHint, getBottomLeft(candidateRc)) * displacementPenalty;
-                distance += getClosestDisplacementDistance(submoduleBounds, annotation.displacementHint, getBottomRight(candidateRc)) * displacementPenalty;
+                distance += getClosestPlacementDistance(submoduleBounds, annotation.placementHint, getTopLeft(candidateRc)) * placementPenalty;
+                distance += getClosestPlacementDistance(submoduleBounds, annotation.placementHint, getTopRight(candidateRc)) * placementPenalty;
+                distance += getClosestPlacementDistance(submoduleBounds, annotation.placementHint, getBottomLeft(candidateRc)) * placementPenalty;
+                distance += getClosestPlacementDistance(submoduleBounds, annotation.placementHint, getBottomRight(candidateRc)) * placementPenalty;
 
                 // find an already positioned annotation which would intersect the candidate rectangle
                 bool intersects = false;
-                for (int l = 0; l < (int)rcs.size(); l++) {
-                    cFigure::Rectangle rc = rcs[l];
+                for (const auto& rc: rcs) {
                     if (intersectsRectangle(candidateRc, rc)) {
                         intersects = true;
                         break;
@@ -321,11 +322,11 @@ void NetworkNodeCanvasVisualization::layout()
         annotation.figure->setTransform(cFigure::Transform().translate(annotation.bounds.x, annotation.bounds.y));
 
         // delete candidate points covered by best rc
-        for (int j = 0; j < (int)pts.size(); j++) {
-            cFigure::Point pt = pts[j];
-
-            if (containsPoint(bestRc, pt))
-                pts.erase(pts.begin() + j--);
+        for (auto j = pts.begin(); j != pts.end(); ) {
+            if (containsPoint(bestRc, *j))
+                j = pts.erase(j);
+            else
+                ++j;
         }
 
         // push new candidates

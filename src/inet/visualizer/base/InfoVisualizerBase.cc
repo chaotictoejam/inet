@@ -16,6 +16,7 @@
 //
 
 #include <algorithm>
+
 #include "inet/visualizer/base/InfoVisualizerBase.h"
 
 namespace inet {
@@ -36,11 +37,8 @@ const char *InfoVisualizerBase::DirectiveResolver::resolveDirective(char directi
         case 'p':
             result = module->getFullPath();
             break;
-        case 'd':
+        case 't':
             result = module->getDisplayString().getTagArg("t", 0);
-            break;
-        case 'i':
-            result = module->info();
             break;
         case 's':
             result = module->str();
@@ -63,8 +61,8 @@ void InfoVisualizerBase::initialize(int stage)
         textColor = cFigure::Color(par("textColor"));
         backgroundColor = cFigure::Color(par("backgroundColor"));
         opacity = par("opacity");
-        displacementHint = parseDisplacement(par("displacementHint"));
-        displacementPriority = par("displacementPriority");
+        placementHint = parsePlacement(par("placementHint"));
+        placementPriority = par("placementPriority");
     }
     else if (stage == INITSTAGE_LAST) {
         if (displayInfos)
@@ -74,6 +72,7 @@ void InfoVisualizerBase::initialize(int stage)
 
 void InfoVisualizerBase::handleParameterChange(const char *name)
 {
+    if (!hasGUI()) return;
     if (name != nullptr) {
         if (!strcmp(name, "modules"))
             modules.setPattern(par("modules"));
@@ -118,7 +117,7 @@ void InfoVisualizerBase::addInfoVisualizations()
 
 void InfoVisualizerBase::removeAllInfoVisualizations()
 {
-    for (auto infoVisualization : infoVisualizations) {
+    for (auto infoVisualization : std::vector<const InfoVisualization *>(infoVisualizations)) {
         removeInfoVisualization(infoVisualization);
         delete infoVisualization;
     }
