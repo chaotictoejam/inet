@@ -70,9 +70,13 @@ void UdpSocketIo::setSocketOptions()
     if (timeToLive != -1)
         socket.setTimeToLive(timeToLive);
 
-    int typeOfService = par("typeOfService");
-    if (typeOfService != -1)
-        socket.setTypeOfService(typeOfService);
+    int dscp = par("dscp");
+    if (dscp != -1)
+        socket.setDscp(dscp);
+
+    int tos = par("tos");
+    if (tos != -1)
+        socket.setTos(tos);
 
     const char *multicastInterface = par("multicastInterface");
     if (multicastInterface[0]) {
@@ -100,7 +104,7 @@ void UdpSocketIo::socketDataArrived(UdpSocket *socket, Packet *packet)
     emit(packetReceivedSignal, packet);
     EV_INFO << "Received packet: " << UdpSocket::getReceivedPacketInfo(packet) << endl;
     numReceived++;
-    packet->removeTag<SocketInd>();
+    delete packet->removeTag<SocketInd>();
     send(packet, "trafficOut");
 }
 

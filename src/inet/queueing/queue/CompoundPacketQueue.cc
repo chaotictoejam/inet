@@ -34,6 +34,12 @@ void CompoundPacketQueue::initialize(int stage)
         consumer = check_and_cast<IPassivePacketSink *>(inputGate->getPathEndGate()->getOwnerModule());
         provider = check_and_cast<IPassivePacketSource *>(outputGate->getPathStartGate()->getOwnerModule());
         collection = check_and_cast<IPacketCollection *>(provider);
+        subscribe(packetPushedSignal, this);
+        subscribe(packetPoppedSignal, this);
+        subscribe(packetRemovedSignal, this);
+        subscribe(packetDroppedSignal, this);
+        subscribe(packetCreatedSignal, this);
+        WATCH(numCreatedPackets);
     }
     else if (stage == INITSTAGE_QUEUEING) {
         checkPushPacketSupport(inputGate);
@@ -41,21 +47,6 @@ void CompoundPacketQueue::initialize(int stage)
     }
     else if (stage == INITSTAGE_LAST)
         updateDisplayString();
-}
-
-int CompoundPacketQueue::getNumPackets()
-{
-    return collection->getNumPackets();
-}
-
-b CompoundPacketQueue::getTotalLength()
-{
-    return collection->getTotalLength();
-}
-
-Packet *CompoundPacketQueue::getPacket(int index)
-{
-    return collection->getPacket(index);
 }
 
 void CompoundPacketQueue::pushPacket(Packet *packet, cGate *gate)
@@ -69,7 +60,7 @@ void CompoundPacketQueue::pushPacket(Packet *packet, cGate *gate)
         dropPacket(packet, QUEUE_OVERFLOW, packetCapacity);
     }
     else {
-        pushOrSendPacket(packet, inputGate, consumer);
+        consumer->pushPacket(packet, inputGate->getPathEndGate());
         updateDisplayString();
     }
 }
@@ -78,7 +69,6 @@ Packet *CompoundPacketQueue::popPacket(cGate *gate)
 {
     Enter_Method("popPacket");
     auto packet = provider->popPacket(outputGate->getPathStartGate());
-    animateSend(packet, outputGate->getPathStartGate());
     emit(packetPoppedSignal, packet);
     updateDisplayString();
     return packet;
@@ -89,6 +79,20 @@ void CompoundPacketQueue::removePacket(Packet *packet)
     Enter_Method("removePacket");
     collection->removePacket(packet);
     emit(packetRemovedSignal, packet);
+    updateDisplayString();
+}
+
+void CompoundPacketQueue::receiveSignal(cComponent *source, simsignal_t signal, cObject *object, cObject *details)
+{
+    Enter_Method("receiveSignal");
+    if (signal == packetPushedSignal || signal == packetPoppedSignal || signal == packetRemovedSignal)
+        ;
+    else if (signal == packetDroppedSignal)
+        numDroppedPackets++;
+    else if (signal == packetCreatedSignal)
+        numCreatedPackets++;
+    else
+        throw cRuntimeError("Unknown signal");
     updateDisplayString();
 }
 
