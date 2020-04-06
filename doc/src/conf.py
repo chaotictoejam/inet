@@ -45,7 +45,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.githubpages',
     'sphinx.ext.graphviz',
-#    'sphinxcontrib.images',  ## needed, but not yet compatible with sphinx 2.x
+    'sphinxcontrib.images',
     'tools.doxylink',
 ]
 
@@ -226,7 +226,7 @@ extlinks = {
 
 # image extension config
 images_config = {
-    'override_image_directive': False,
+    'override_image_directive': True,
 #    'backend': 'LightBox2',
 #    'default_image_width': '100%',
 #    'default_image_height': 'auto',
@@ -238,9 +238,9 @@ images_config = {
 # -- Doxylink config ---------------------------------------------------------
 
 doxylink = {
-#        'cpp' : ('doxytags.xml', 'https://omnetpp.org/doc/inet/api-current/doxy/'),
-        'ned' : ('nedtags.xml', 'https://omnetpp.org/doc/inet/api-current/neddoc/'),
-        'msg' : ('msgtags.xml', 'https://omnetpp.org/doc/inet/api-current/neddoc/'),
+#        'cpp' : ('doxytags.xml', 'https://doc.omnetpp.org/inet/api-current/doxy/'),
+        'ned' : ('nedtags.xml', 'https://doc.omnetpp.org/inet/api-current/neddoc/'),
+        'msg' : ('msgtags.xml', 'https://doc.omnetpp.org/inet/api-current/neddoc/'),
 }
 
 # -- Extension configuration -------------------------------------------------
