@@ -155,7 +155,7 @@ void Arp::initiateArpResolution(ArpCacheEntry *entry)
     // start timer
     cMessage *msg = entry->timer = new cMessage("ARP timeout");
     msg->setContextPointer(entry);
-    scheduleAt(simTime() + retryTimeout, msg);
+    scheduleAfter(retryTimeout, msg);
 
     numResolutions++;
     Notification signal(nextHopAddr, MacAddress::UNSPECIFIED_ADDRESS, entry->ie);
@@ -200,7 +200,7 @@ void Arp::requestTimedOut(cMessage *selfmsg)
         Ipv4Address nextHopAddr = entry->myIter->first;
         EV_INFO << "ARP request for " << nextHopAddr << " timed out, resending\n";
         sendArpRequest(entry->ie, nextHopAddr);
-        scheduleAt(simTime() + retryTimeout, selfmsg);
+        scheduleAfter(retryTimeout, selfmsg);
         return;
     }
 
@@ -386,7 +386,7 @@ void Arp::updateArpCache(ArpCacheEntry *entry, const MacAddress& macAddress)
     // update entry
     if (entry->pending) {
         entry->pending = false;
-        delete cancelEvent(entry->timer);
+        cancelAndDelete(entry->timer);
         entry->timer = nullptr;
         entry->numRetries = 0;
     }

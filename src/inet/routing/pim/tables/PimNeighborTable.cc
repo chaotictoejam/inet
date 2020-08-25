@@ -37,7 +37,6 @@ PimNeighbor::PimNeighbor(InterfaceEntry *ie, Ipv4Address address, int version)
 
 PimNeighbor::~PimNeighbor()
 {
-    ASSERT(!livenessTimer->isScheduled());
     delete livenessTimer;
 }
 
@@ -156,8 +155,7 @@ bool PimNeighborTable::deleteNeighbor(PimNeighbor *neighbor)
 void PimNeighborTable::restartLivenessTimer(PimNeighbor *neighbor, double holdTime)
 {
     Enter_Method_Silent();
-    cancelEvent(neighbor->getLivenessTimer());
-    scheduleAt(simTime() + holdTime, neighbor->getLivenessTimer());
+    rescheduleAfter(holdTime, neighbor->getLivenessTimer());
 }
 
 PimNeighbor *PimNeighborTable::findNeighbor(int interfaceId, Ipv4Address addr)

@@ -20,7 +20,7 @@
 #include "inet/networklayer/common/InterfaceEntry.h"
 #include "inet/networklayer/common/L3AddressResolver.h"
 #ifdef WITH_NEXTHOP
-#include "../../networklayer/nexthop/NextHopInterfaceData.h"
+#include "inet/networklayer/nexthop/NextHopInterfaceData.h"
 #endif // WITH_NEXTHOP
 #ifdef WITH_IPv4
 #include "inet/networklayer/ipv4/Ipv4InterfaceData.h"
@@ -172,7 +172,7 @@ void InterfaceTableVisualizerBase::subscribe()
 void InterfaceTableVisualizerBase::unsubscribe()
 {
     // NOTE: lookup the module again because it may have been deleted first
-    auto visualizationSubjectModule = getModuleFromPar<cModule>(par("visualizationSubjectModule"), this, false);
+    auto visualizationSubjectModule = findModuleFromPar<cModule>(par("visualizationSubjectModule"), this);
     if (visualizationSubjectModule != nullptr) {
         visualizationSubjectModule->unsubscribe(interfaceCreatedSignal, this);
         visualizationSubjectModule->unsubscribe(interfaceDeletedSignal, this);

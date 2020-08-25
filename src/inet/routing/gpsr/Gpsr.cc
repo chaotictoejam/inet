@@ -153,7 +153,7 @@ void Gpsr::processMessage(cMessage *message)
 void Gpsr::scheduleBeaconTimer()
 {
     EV_DEBUG << "Scheduling beacon timer" << endl;
-    scheduleAt(simTime() + beaconInterval + uniform(-1, 1) * maxJitter, beaconTimer);
+    scheduleAfter(beaconInterval + uniform(-1, 1) * maxJitter, beaconTimer);
 }
 
 void Gpsr::processBeaconTimer()
@@ -185,8 +185,7 @@ void Gpsr::schedulePurgeNeighborsTimer()
             scheduleAt(nextExpiration, purgeNeighborsTimer);
         else {
             if (purgeNeighborsTimer->getArrivalTime() != nextExpiration) {
-                cancelEvent(purgeNeighborsTimer);
-                scheduleAt(nextExpiration, purgeNeighborsTimer);
+                rescheduleAt(nextExpiration, purgeNeighborsTimer);
             }
         }
     }

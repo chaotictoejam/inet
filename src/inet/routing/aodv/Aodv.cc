@@ -108,7 +108,7 @@ void Aodv::handleMessageWhenUp(cMessage *msg)
             expungeRoutes();
         else if (msg == counterTimer) {
             rreqCount = rerrCount = 0;
-            scheduleAt(simTime() + 1, counterTimer);
+            scheduleAfter(1, counterTimer);
         }
         else if (msg == rrepAckTimer)
             handleRREPACKTimer();
@@ -342,7 +342,7 @@ void Aodv::sendRREQ(const Ptr<Rreq>& rreq, const L3Address& destAddr, unsigned i
 
     // Each time, the timeout for receiving a RREP is RING_TRAVERSAL_TIME.
     simtime_t ringTraversalTime = 2.0 * nodeTraversalTime * (timeToLive + timeoutBuffer);
-    scheduleAt(simTime() + ringTraversalTime, rrepTimerMsg);
+    scheduleAfter(ringTraversalTime, rrepTimerMsg);
 
     EV_INFO << "Sending a Route Request with target " << rreq->getDestAddr() << " and TTL= " << timeToLive << endl;
     sendAODVPacket(rreq, destAddr, timeToLive, *jitterPar);
@@ -376,10 +376,7 @@ void Aodv::sendRREP(const Ptr<Rrep>& rrep, const L3Address& destAddr, unsigned i
 
         failedNextHop = nextHop;
 
-        if (rrepAckTimer->isScheduled())
-            cancelEvent(rrepAckTimer);
-
-        scheduleAt(simTime() + nextHopWait, rrepAckTimer);
+        rescheduleAfter(nextHopWait, rrepAckTimer);
     }
     sendAODVPacket(rrep, nextHop, timeToLive, 0);
 }
@@ -761,7 +758,7 @@ void Aodv::sendAODVPacket(const Ptr<AodvControlPacket>& aodvPacket, const L3Addr
     else {
         auto *timer = new PacketHolderMessage("aodv-send-jitter", KIND_DELAYEDSEND);
         timer->setOwnedPacket(packet);
-        scheduleAt(simTime()+delay, timer);
+        scheduleAfter(delay, timer);
     }
 }
 
@@ -1235,9 +1232,9 @@ void Aodv::handleStartOperation(LifecycleOperation *operation)
     // the delay between consecutive transmissions of messages of the same type is
     // equal to (MESSAGE_INTERVAL - jitter), where jitter is the random value.
     if (useHelloMessages)
-        scheduleAt(simTime() + helloInterval - *periodicJitter, helloMsgTimer);
+        scheduleAfter(helloInterval - *periodicJitter, helloMsgTimer);
 
-    scheduleAt(simTime() + 1, counterTimer);
+    scheduleAfter(1, counterTimer);
 }
 
 void Aodv::handleStopOperation(LifecycleOperation *operation)
@@ -1409,7 +1406,7 @@ void Aodv::sendHelloMessagesIfNeeded()
         sendAODVPacket(helloMessage, addressType->getBroadcastAddress(), 1, 0);
     }
 
-    scheduleAt(simTime() + helloInterval - *periodicJitter, helloMsgTimer);
+    scheduleAfter(helloInterval - *periodicJitter, helloMsgTimer);
 }
 
 void Aodv::handleHelloMessage(const Ptr<Rrep>& helloMessage)
@@ -1508,8 +1505,7 @@ void Aodv::scheduleExpungeRoutes()
             scheduleAt(nextExpungeTime, expungeTimer);
         else {
             if (expungeTimer->getArrivalTime() != nextExpungeTime) {
-                cancelEvent(expungeTimer);
-                scheduleAt(nextExpungeTime, expungeTimer);
+                rescheduleAt(nextExpungeTime, expungeTimer);
             }
         }
     }
@@ -1688,7 +1684,7 @@ void Aodv::handleRREPACKTimer()
     blacklist[failedNextHop] = simTime() + blacklistTimeout;    // lifetime
 
     if (!blacklistTimer->isScheduled())
-        scheduleAt(simTime() + blacklistTimeout, blacklistTimer);
+        scheduleAfter(blacklistTimeout, blacklistTimer);
 }
 
 void Aodv::handleBlackListTimer()

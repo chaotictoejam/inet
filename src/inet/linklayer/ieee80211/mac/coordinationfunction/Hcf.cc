@@ -148,15 +148,13 @@ void Hcf::processUpperFrame(Packet *packet, const Ptr<const Ieee80211DataOrMgmtH
 void Hcf::scheduleStartRxTimer(simtime_t timeout)
 {
     Enter_Method_Silent();
-    scheduleAt(simTime() + timeout, startRxTimer);
+    scheduleAfter(timeout, startRxTimer);
 }
 
 void Hcf::scheduleInactivityTimer(simtime_t timeout)
 {
     Enter_Method_Silent();
-    if (inactivityTimer->isScheduled())
-        cancelEvent(inactivityTimer);
-    scheduleAt(simTime() + timeout, inactivityTimer);
+    rescheduleAfter(timeout, inactivityTimer);
 }
 
 void Hcf::processLowerFrame(Packet *packet, const Ptr<const Ieee80211MacHeader>& header)

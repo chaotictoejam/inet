@@ -22,7 +22,7 @@ namespace inet {
 Quaternion Quaternion::IDENTITY = Quaternion();
 Quaternion Quaternion::NIL = Quaternion(NaN, NaN, NaN, NaN);
 
-Quaternion::Quaternion(const Coord &axis, double angle) : Quaternion(std::cos(angle/2), axis*std::sin(angle/2))
+Quaternion::Quaternion(const Coord& axis, double angle) : Quaternion(std::cos(angle/2), axis*std::sin(angle/2))
 {
     // nothing
 }
@@ -133,7 +133,7 @@ void Quaternion::getRotationAxisAndAngle(Coord &axis, double &angle) const
     angle *= 2;
 }
 
-Coord Quaternion::rotate(const Coord &v) const
+Coord Quaternion::rotate(const Coord& v) const
 {
     Quaternion V(0, v);
     Quaternion conjugate(*this);
@@ -152,12 +152,12 @@ EulerAngles Quaternion::toEulerAngles(bool homogenous) const
     EulerAngles euler;
     if (homogenous) {
         euler.gamma = rad(std::atan2(2.0 * (v.x*v.y + v.z*s), sqx - sqy - sqz + sqw));
-        euler.beta = rad(std::asin(std::min(1.0, std::max(-1.0, -2.0 * (v.x*v.z - v.y*s)))));
+        euler.beta = rad(std::asin(math::minnan(1.0, math::maxnan(-1.0, -2.0 * (v.x*v.z - v.y*s)))));
         euler.alpha = rad(std::atan2(2.0 * (v.y*v.z + v.x*s), -sqx - sqy + sqz + sqw));
     }
     else {
         euler.gamma = rad(std::atan2(2.0 * (v.z*v.y + v.x*s), 1 - 2*(sqx + sqy)));
-        euler.beta = rad(std::asin(std::min(1.0, std::max(-1.0, -2.0 * (v.x*v.z - v.y*s)))));
+        euler.beta = rad(std::asin(math::minnan(1.0, math::maxnan(-1.0, -2.0 * (v.x*v.z - v.y*s)))));
         euler.alpha = rad(std::atan2(2.0 * (v.x*v.y + v.z*s), 1 - 2*(sqy + sqz)));
     }
     euler.normalize();

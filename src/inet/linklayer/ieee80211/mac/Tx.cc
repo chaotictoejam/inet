@@ -41,7 +41,7 @@ void Tx::initialize(int stage)
     if (stage == INITSTAGE_LOCAL) {
         mac = check_and_cast<Ieee80211Mac *>(getContainingNicModule(this)->getSubmodule("mac"));
         endIfsTimer = new cMessage("endIFS");
-        rx = dynamic_cast<IRx *>(getModuleByPath(par("rxModule")));
+        rx = dynamic_cast<IRx *>(findModuleByPath(par("rxModule")));
         WATCH(transmitting);
     }
 }
@@ -87,7 +87,7 @@ void Tx::transmitFrame(Packet *packet, const Ptr<const Ieee80211MacHeader>& head
         mac->sendDownFrame(frame->dup());
     }
     else
-        scheduleAt(simTime() + ifs, endIfsTimer);
+        scheduleAfter(ifs, endIfsTimer);
 }
 
 void Tx::radioTransmissionFinished()

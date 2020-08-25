@@ -697,7 +697,6 @@ RouterLSA* Ospfv3Area::originateRouterLSA()
     Ospfv3LsaHeader& lsaHeader = routerLSA->getHeaderForUpdate();
     long interfaceCount = this->interfaceList.size();
     Ospfv3Options lsOptions;
-    memset(&lsOptions, 0, sizeof(Ospfv3Options));
 
     //First set the LSA Header
     lsaHeader.setLsaAge(0);
@@ -724,7 +723,6 @@ RouterLSA* Ospfv3Area::originateRouterLSA()
         }
 
         Ospfv3RouterLsaBody routerLSABody;
-        memset(&routerLSABody, 0, sizeof(Ospfv3RouterLsaBody));
 
         switch (intf->getType()) {
             case Ospfv3Interface::POINTTOPOINT_TYPE: {
@@ -1005,7 +1003,6 @@ NetworkLSA* Ospfv3Area::originateNetworkLSA(Ospfv3Interface* interface)
         NetworkLSA* networkLsa = new NetworkLSA();
         Ospfv3LsaHeader& lsaHeader = networkLsa->getHeaderForUpdate();
         Ospfv3Options lsOptions;
-        memset(&lsOptions, 0, sizeof(Ospfv3Options));
         //TODO - LSA Options for NetworkLSA is not set.
 
         //First set the LSA Header
@@ -1443,7 +1440,7 @@ IntraAreaPrefixLSA* Ospfv3Area::originateIntraAreaPrefixLSA() //this is for non-
 
             for (int i=0; i<numPrefixes; i++) {
                 if (this->getInstance()->getAddressFamily() == IPV4INSTANCE) {
-                    Ipv4InterfaceData* ipv4Data = ie->findProtocolData<Ipv4InterfaceData>();
+                    Ipv4InterfaceData* ipv4Data = ie->getProtocolData<Ipv4InterfaceData>();
                     Ipv4Address ipAdd = ipv4Data->getIPAddress();
                     Ospfv3LsaPrefixMetric prefix;
                     prefix.prefixLen= ipv4Data->getNetmask().getNetmaskLength();
@@ -1547,7 +1544,7 @@ IntraAreaPrefixLSA* Ospfv3Area::originateNetIntraAreaPrefixLSA(NetworkLSA* netwo
     int prefixCount = 0;
     for (int i=0; i < numPrefixes; i++) {
         if (this->getInstance()->getAddressFamily() == IPV4INSTANCE) {
-            Ipv4InterfaceData* ipv4Data = ie->findProtocolData<Ipv4InterfaceData>();
+            Ipv4InterfaceData* ipv4Data = ie->getProtocolData<Ipv4InterfaceData>();
             Ipv4Address ipAdd = ipv4Data->getIPAddress();
             Ospfv3LsaPrefixMetric prefix;
             prefix.prefixLen= ipv4Data->getNetmask().getNetmaskLength();

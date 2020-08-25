@@ -252,7 +252,7 @@ void TcpBaseAlg::processRexmitTimer(TcpEventCode& event)
     if (state->rexmit_timeout > MAX_REXMIT_TIMEOUT)
         state->rexmit_timeout = MAX_REXMIT_TIMEOUT;
 
-    conn->scheduleTimeout(rexmitTimer, state->rexmit_timeout);
+    conn->scheduleAfter(state->rexmit_timeout, rexmitTimer);
 
     EV_INFO << " to " << state->rexmit_timeout << "s, and cancelling RTT measurement\n";
 
@@ -315,7 +315,7 @@ void TcpBaseAlg::processPersistTimer(TcpEventCode& event)
     if (state->persist_timeout > MAX_PERSIST_TIMEOUT)
         state->rexmit_timeout = MAX_PERSIST_TIMEOUT;
 
-    conn->scheduleTimeout(persistTimer, state->persist_timeout);
+    conn->scheduleAfter(state->persist_timeout, persistTimer);
 
     // sending persist probe
     conn->sendProbe();
@@ -350,7 +350,7 @@ void TcpBaseAlg::startRexmitTimer()
     state->rexmit_count = 0;
 
     // schedule timer
-    conn->scheduleTimeout(rexmitTimer, state->rexmit_timeout);
+    conn->scheduleAfter(state->rexmit_timeout, rexmitTimer);
 }
 
 void TcpBaseAlg::rttMeasurementComplete(simtime_t tSent, simtime_t tAcked)
@@ -500,7 +500,7 @@ void TcpBaseAlg::receiveSeqChanged()
             else {
                 EV_INFO << "rcv_nxt changed to " << state->rcv_nxt << ", (delayed ACK enabled and full_sized_segment_counter=" << state->full_sized_segment_counter << ") scheduling ACK\n";
                 if (!delayedAckTimer->isScheduled()) // schedule delayed ACK timer if not already running
-                    conn->scheduleTimeout(delayedAckTimer, DELAYED_ACK_TIMEOUT);
+                    conn->scheduleAfter(DELAYED_ACK_TIMEOUT, delayedAckTimer);
             }
         }
     }
@@ -565,7 +565,7 @@ void TcpBaseAlg::receivedDataAck(uint32 firstSeqAcked)
         else {
             if (!persistTimer->isScheduled()) {
                 EV_INFO << "Received zero-sized window therefore PERSIST timer is started.\n";
-                conn->scheduleTimeout(persistTimer, state->persist_timeout);
+                conn->scheduleAfter(state->persist_timeout, persistTimer);
             }
             else
                 EV_INFO << "Received zero-sized window and PERSIST timer is already running.\n";
@@ -593,7 +593,7 @@ void TcpBaseAlg::receivedDuplicateAck()
     EV_INFO << "Duplicate ACK #" << state->dupacks << "\n";
 
     bool fullSegmentsOnly = state->nagle_enabled && state->snd_una != state->snd_max;
-    if (state->dupacks < DUPTHRESH && state->limited_transmit_enabled) // DUPTRESH = 3
+    if (state->dupacks < state->dupthresh && state->limited_transmit_enabled) // DUPTRESH = 3
         conn->sendOneNewSegment(fullSegmentsOnly, state->snd_cwnd); // RFC 3042
 
     //
@@ -657,6 +657,44 @@ void TcpBaseAlg::restartRexmitTimer()
         cancelEvent(rexmitTimer);
 
     startRexmitTimer();
+}
+
+bool TcpBaseAlg::shouldMarkAck()
+{
+
+    // rfc-3168, pages 19-20:
+    // When TCP receives a CE data packet at the destination end-system, the
+    // TCP data receiver sets the ECN-Echo flag in the TCP header of the
+    // subsequent ACK packet.
+    // ...
+    // After a TCP receiver sends an ACK packet with the ECN-Echo bit set,
+    // that TCP receiver continues to set the ECN-Echo flag in all the ACK
+    // packets it sends (whether they acknowledge CE data packets or non-CE
+    // data packets) until it receives a CWR packet (a packet with the CWR
+    // flag set).  After the receipt of the CWR packet, acknowledgments for
+    // subsequent non-CE data packets do not have the ECN-Echo flag set.
+
+    if (state && state->ect) {
+        if (state->gotCeIndication) {
+            EV_INFO << "Received CE... ";
+            if (state->ecnEchoState)
+                EV_INFO << "Already in ecnEcho state\n";
+            else {
+                state->ecnEchoState = true;
+                EV << "Entering ecnEcho state\n";
+            }
+            state->gotCeIndication = false;
+        }
+        return  state->ecnEchoState;
+    }
+    return false;
+}
+
+
+void TcpBaseAlg::processEcnInEstablished()
+{
+
+
 }
 
 } // namespace tcp

@@ -207,7 +207,7 @@ void Rstp::handleHelloTime(cMessage *msg)
     }
     sendBPDUs();    // generating and sending new BPDUs
     sendTCNtoRoot();
-    scheduleAt(simTime() + helloTime, msg);    // programming next hello time
+    scheduleAfter(helloTime, msg);    // programming next hello time
 }
 
 void Rstp::checkTC(const Ptr<const BpduCfg>& frame, int arrivalInterfaceId)
@@ -903,7 +903,7 @@ void Rstp::start()
 {
     StpBase::start();
     initPorts();
-    scheduleAt(simTime(), helloTimer);
+    scheduleAfter(SIMTIME_ZERO, helloTimer);
 }
 
 void Rstp::stop()

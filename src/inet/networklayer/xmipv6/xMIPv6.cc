@@ -405,7 +405,7 @@ void xMIPv6::createBUTimer(const Ipv6Address& buDest, InterfaceEntry *ie, const 
 
     // send BU now
     //scheduleAt(buIfEntry->initScheduledBUTime, buTriggerMsg); //Scheduling a message which will trigger a BU towards buIfEntry->dest
-    scheduleAt(simTime(), buTriggerMsg);    //Scheduling a message which will trigger a BU towards buIfEntry->dest
+    scheduleAfter(SIMTIME_ZERO, buTriggerMsg);    //Scheduling a message which will trigger a BU towards buIfEntry->dest
 }
 
 void xMIPv6::sendPeriodicBU(cMessage *msg)
@@ -1508,7 +1508,7 @@ void xMIPv6::createTestInitTimer(const Ptr<MobilityHeader> testInit, const Ipv6A
 
     // scheduling a message which will trigger the Test Init for sendTime seconds
     // if not called with a parameter for sendTime, the message will be scheduled for NOW
-    scheduleAt(simTime() + sendTime, testInitTriggerMsg);
+    scheduleAfter(sendTime, testInitTriggerMsg);
 }
 
 void xMIPv6::sendTestInit(cMessage *msg)
@@ -1678,15 +1678,12 @@ void xMIPv6::resetBUIfEntry(const Ipv6Address& dest, int interfaceID, simtime_t 
     TimerIfEntry *entry = (pos->second);
     ASSERT(entry);
 
-    // first we cancel the current retransmission timer
-    cancelEvent(entry->timer);
-    // then we reset the timeout value to the initial value
+    // reset the timeout value to the initial value
     entry->ackTimeout = entry->ifEntry->getProtocolData<Ipv6InterfaceData>()->_getInitialBindAckTimeout();
     // and then we reschedule again for BU expiry time
     // (with correct offset for scheduling)
     entry->nextScheduledTime = retransmissionTime;
-
-    scheduleAt(entry->nextScheduledTime, entry->timer);
+    rescheduleAt(entry->nextScheduledTime, entry->timer);
 
     EV_INFO << "Updated BuTransmitIfEntry and corresponding timer.\n";
 }
@@ -2435,7 +2432,7 @@ void xMIPv6::createBRRTimer(const Ipv6Address& brDest, InterfaceEntry *ie, const
     brTriggerMsg->setContextPointer(brIfEntry);    // attaching the brIfEntry info corresponding to a particular address ith message
 
     // Scheduling a message which will trigger a BRR towards brIfEntry->dest
-    scheduleAt(simTime() + scheduledTime, brTriggerMsg);
+    scheduleAfter(scheduledTime, brTriggerMsg);
     EV_DETAIL << "\n++++++++++BRR TIMER CREATED FOR SIM TIME: " << simTime() + scheduledTime
               << " seconds+++++++++++++++++ \n";
 }
@@ -2458,7 +2455,7 @@ void xMIPv6::sendPeriodicBRR(cMessage *msg)
         createAndSendBRRMessage(brDest, ie);
 
         // retransmit the Binding Refresh Message
-        scheduleAt(simTime() + BRR_TIMEOUT_THRESHOLD, msg);
+        scheduleAfter(BRR_TIMEOUT_THRESHOLD, msg);
     }
     else {
         // we've tried often enough - remove the timer

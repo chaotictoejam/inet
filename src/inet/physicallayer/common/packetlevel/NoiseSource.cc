@@ -64,8 +64,8 @@ void NoiseSource::handleMessage(cMessage *message)
 
 void NoiseSource::startTransmission()
 {
-    Signal *signal = check_and_cast<Signal *>(medium->transmitPacket(this, nullptr));
-    transmissionTimer->setContextPointer(const_cast<Signal *>(signal));
+    WirelessSignal *signal = check_and_cast<WirelessSignal *>(medium->transmitPacket(this, nullptr));
+    transmissionTimer->setContextPointer(const_cast<WirelessSignal *>(signal));
     scheduleTransmissionTimer(signal->getTransmission());
 }
 
@@ -77,12 +77,12 @@ void NoiseSource::endTransmission()
 
 void NoiseSource::scheduleSleepTimer()
 {
-    scheduleAt(simTime() + par("sleepInterval"), sleepTimer);
+    scheduleAfter(par("sleepInterval"), sleepTimer);
 }
 
 void NoiseSource::scheduleTransmissionTimer(const ITransmission *transmission)
 {
-    scheduleAt(simTime() + transmission->getDuration(), transmissionTimer);
+    scheduleAfter(transmission->getDuration(), transmissionTimer);
 }
 
 const ITransmission *NoiseSource::getTransmissionInProgress() const
@@ -90,7 +90,7 @@ const ITransmission *NoiseSource::getTransmissionInProgress() const
     if (!transmissionTimer->isScheduled())
         return nullptr;
     else
-        return static_cast<Signal *>(transmissionTimer->getContextPointer())->getTransmission();
+        return static_cast<WirelessSignal *>(transmissionTimer->getContextPointer())->getTransmission();
 }
 
 } // namespace physicallayer

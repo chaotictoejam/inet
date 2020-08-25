@@ -77,6 +77,9 @@ class INET_API MoBanLocal : public LineSegmentsMobilityBase
     /** @brief The possible maximum speed at any future time */
     double maxSpeed;
 
+    Coord lastCompositePosition;
+    Coord lastCompositeVelocity;
+
   protected:
     virtual int numInitStages() const override { return NUM_INIT_STAGES; }
 
@@ -92,9 +95,9 @@ class INET_API MoBanLocal : public LineSegmentsMobilityBase
   public:
     MoBanLocal();
 
-    virtual Coord getCurrentPosition() override;
+    virtual const Coord& getCurrentPosition() override;
 
-    virtual Coord getCurrentVelocity() override;
+    virtual const Coord& getCurrentVelocity() override;
 
     void setCoordinator(MoBanCoordinator *coordinator) { this->coordinator = coordinator; }
 

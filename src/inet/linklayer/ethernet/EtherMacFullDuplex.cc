@@ -62,7 +62,7 @@ void EtherMacFullDuplex::initializeFlags()
     EtherMacBase::initializeFlags();
 
     duplexMode = true;
-    physInGate->setDeliverOnReceptionStart(false);
+    physInGate->setDeliverImmediately(false);
 }
 
 void EtherMacFullDuplex::handleMessageWhenUp(cMessage *msg)
@@ -391,7 +391,7 @@ void EtherMacFullDuplex::scheduleEndPausePeriod(int pauseUnits)
     ASSERT(nullptr == currentTxFrame);
     // length is interpreted as 512-bit-time units
     simtime_t pausePeriod = ((pauseUnits * PAUSE_UNIT_BITS) / curEtherDescr->txrate);
-    scheduleAt(simTime() + pausePeriod, endPauseMsg);
+    scheduleAfter(pausePeriod, endPauseMsg);
     changeTransmissionState(PAUSE_STATE);
 }
 

@@ -57,7 +57,7 @@ void GridNeighborCache::initialize(int stage)
         if (std::isnan(cellSize.z))
             cellSize.z = constraintAreaSize.z / par("cellCountZ").doubleValue();
         fillCubeVector();
-        scheduleAt(simTime() + refillPeriod, refillCellsTimer);
+        scheduleAfter(refillPeriod, refillCellsTimer);
     }
 }
 
@@ -67,7 +67,7 @@ void GridNeighborCache::handleMessage(cMessage *msg)
         throw cRuntimeError("This module only handles self messages");
     EV_DETAIL << "Updating the grid cells" << endl;
     fillCubeVector();
-    scheduleAt(simTime() + refillPeriod, msg);
+    scheduleAfter(refillPeriod, msg);
 }
 
 std::ostream& GridNeighborCache::printToStream(std::ostream& stream, int level) const
@@ -97,7 +97,7 @@ void GridNeighborCache::addRadio(const IRadio *radio)
     Coord radioPos = radio->getAntenna()->getMobility()->getCurrentPosition();
     maxSpeed = radioMedium->getMediumLimitCache()->getMaxSpeed().get();
     if (maxSpeed != 0 && !refillCellsTimer->isScheduled() && initialized())
-        scheduleAt(simTime() + refillPeriod, refillCellsTimer);
+        scheduleAfter(refillPeriod, refillCellsTimer);
     Coord newConstraintAreaMin = radioMedium->getMediumLimitCache()->getMinConstraintArea();
     Coord newConstraintAreaMax = radioMedium->getMediumLimitCache()->getMaxConstraintArea();
     // If the constraintArea changed we must rebuild the grid
@@ -134,7 +134,7 @@ void GridNeighborCache::removeRadio(const IRadio *radio)
     }
 }
 
-void GridNeighborCache::sendToNeighbors(IRadio *transmitter, const ISignal *signal, double range) const
+void GridNeighborCache::sendToNeighbors(IRadio *transmitter, const IWirelessSignal *signal, double range) const
 {
     double radius = range + (maxSpeed * refillPeriod);
     Coord transmitterPos = transmitter->getAntenna()->getMobility()->getCurrentPosition();

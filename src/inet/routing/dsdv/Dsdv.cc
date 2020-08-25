@@ -111,7 +111,7 @@ void Dsdv::start()
     //reads from omnetpp.ini
     //HelloForward = new DsdvHello("HelloForward");
     // schedules a random periodic event: the hello message broadcast from DSDV module
-    scheduleAt(simTime() + uniform(0.0, par("maxVariance").doubleValue()), event);
+    scheduleAfter(uniform(0.0, par("maxVariance").doubleValue()), event);
 }
 
 void Dsdv::stop()
@@ -187,7 +187,7 @@ void Dsdv::handleSelfMessage(cMessage *msg)
         hello = nullptr;
 
         //schedule new brodcast hello message event
-        scheduleAt(simTime()+helloInterval+broadcastDelay->doubleValue(), event);
+        scheduleAfter(helloInterval+broadcastDelay->doubleValue(), event);
         bubble("Sending new hello message");
     }
     else
@@ -325,10 +325,9 @@ void Dsdv::handleMessageWhenUp(cMessage *msg)
                     double waitTime = intuniform(1, 50);
                     waitTime = waitTime/100;
                     EV_DETAIL << "waitime for forward before was " << waitTime <<" And host is " << source << "\n";
-                    waitTime = SIMTIME_DBL(simTime())+waitTime;
                     EV_DETAIL << "waitime for forward is " << waitTime <<" And host is " << source << "\n";
                     fhp->event = new cMessage("event2");
-                    scheduleAt(waitTime, fhp->event);
+                    scheduleAfter(waitTime, fhp->event);
                     forwardList->push_back(fhp);
                     fhp = nullptr;
                 }

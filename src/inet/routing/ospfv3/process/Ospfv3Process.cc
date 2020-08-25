@@ -37,7 +37,7 @@ void Ospfv3Process::initialize(int stage)
         this->containingModule=findContainingNode(this);
         ift = getModuleFromPar<IInterfaceTable>(par("interfaceTableModule"), this);
         rt6 = getModuleFromPar<Ipv6RoutingTable>(par("routingTableModule6"), this);
-        rt4 = getModuleFromPar<IIpv4RoutingTable>(par("routingTableModule"), this);
+        rt4 = findModuleFromPar<IIpv4RoutingTable>(par("routingTableModule"), this);
 
         this->routerID = Ipv4Address(par("routerID").stringValue());
         this->processID = (int)par("processID");
@@ -48,7 +48,7 @@ void Ospfv3Process::initialize(int stage)
 
         cMessage* init = new cMessage();
         init->setKind(INIT_PROCESS);
-        scheduleAt(simTime()+ OSPFV3_START, init);
+        scheduleAfter( OSPFV3_START, init);
         WATCH_PTRVECTOR(this->instances);
         WATCH_PTRVECTOR(this->routingTableIPv6);
         WATCH_PTRVECTOR(this->routingTableIPv4);
@@ -116,8 +116,9 @@ int Ospfv3Process::isInRoutingTable6(Ipv6RoutingTable *rtTable, Ipv6Address addr
 int Ospfv3Process::isInInterfaceTable(IInterfaceTable *ifTable, Ipv4Address addr)
 {
     for (int i = 0; i < ifTable->getNumInterfaces(); i++) {
-        if (ifTable->getInterface(i)->findProtocolData<Ipv4InterfaceData>()->getIPAddress() == addr) {
-            return i;
+        if (auto ipv4Data = ifTable->getInterface(i)->findProtocolData<Ipv4InterfaceData>()) {
+            if (ipv4Data->getIPAddress() == addr)
+                return i;
         }
     }
     return -1;
@@ -144,10 +145,9 @@ void Ospfv3Process::parseConfig(cXMLElement* interfaceConfig)
         const char* interfaceName = (*interfaceIt)->getAttribute("name");
         InterfaceEntry *myInterface = CHK(ift->findInterfaceByName(interfaceName));
 
-        if (myInterface->isLoopback()) {
-            const char * ipv41 = "127.0.0.0";
-            Ipv4Address tmpipv4;
-            tmpipv4.set(ipv41);
+        if (rt4 != nullptr && myInterface->isLoopback()) {
+            static const Ipv4Address tmpipv4("127.0.0.0");
+
             int i = isInRoutingTable(rt4, tmpipv4);
             if (i != -1) {
                 rt4->deleteRoute(rt4->getRoute(i));
@@ -187,13 +187,15 @@ void Ospfv3Process::parseConfig(cXMLElement* interfaceConfig)
         }
 
         //interface ipv4 configuration
-        Ipv4Address addr;
-        Ipv4Address mask;
-        Ipv4InterfaceData * intfData = myInterface->findProtocolData<Ipv4InterfaceData>(); //new Ipv4InterfaceData();
         bool alreadySet = false;
 
         cXMLElementList ipv4AddrList = (*interfaceIt)->getElementsByTagName("IPAddress");
         if (ipv4AddrList.size() == 1) {
+            if (rt4 == nullptr)
+                throw cRuntimeError("ipv4 routing table required for current config");
+            Ipv4Address addr;
+            Ipv4Address mask;
+            Ipv4InterfaceData * intfData = myInterface->getProtocolData<Ipv4InterfaceData>();
             for (auto & ipv4Rec : ipv4AddrList) {
                 const char * addr4c = ipv4Rec->getNodeValue(); //from string make ipv4 address and store to interface config
                 addr = (Ipv4Address(addr4c));
@@ -654,7 +656,7 @@ void Ospfv3Process::handleTimer(cMessage* msg)
 
 void Ospfv3Process::setTimer(cMessage* msg, double delay = 0)
 {
-    scheduleAt(simTime()+delay, msg);
+    scheduleAfter(delay, msg);
 }
 
 void Ospfv3Process::activateProcess()
@@ -663,7 +665,7 @@ void Ospfv3Process::activateProcess()
     this->isActive=true;
     cMessage* init = new cMessage();
     init->setKind(HELLO_TIMER_INIT);
-    scheduleAt(simTime(), init);
+    scheduleAfter(SIMTIME_ZERO, init);
 }//activateProcess
 
 void Ospfv3Process::debugDump()
@@ -916,6 +918,8 @@ void Ospfv3Process::rebuildRoutingTable()
             }
         }
         else {
+            if (rt4 == nullptr)
+                throw cRuntimeError("ipv4 routing table required");
             oldTableIPv4.assign(routingTableIPv4.begin(), routingTableIPv4.end());
             routingTableIPv4.clear();
             routingTableIPv4.assign(newTableIPv4.begin(), newTableIPv4.end());
@@ -961,6 +965,8 @@ void Ospfv3Process::rebuildRoutingTable()
                 delete (oldTableIPv6[i]);
         }
         else {
+            if (rt4 == nullptr)
+                throw cRuntimeError("ipv4 routing table required");
             routeCount = routingTableIPv4.size();
             for (i = 0; i < routeCount; i++) {
                 if (routingTableIPv4[i]->getDestinationType() == Ospfv3Ipv4RoutingTableEntry::NETWORK_DESTINATION) {

@@ -78,12 +78,12 @@ void Tcp::initialize(int stage)
         registerProtocol(Protocol::tcp, gate("ipOut"), gate("appOut"));
         if (crcMode == CRC_COMPUTED) {
 #ifdef WITH_IPv4
-            auto ipv4 = dynamic_cast<INetfilter *>(getModuleByPath("^.ipv4.ip"));
+            auto ipv4 = dynamic_cast<INetfilter *>(findModuleByPath("^.ipv4.ip"));
             if (ipv4 != nullptr)
                 ipv4->registerHook(0, &crcInsertion);
 #endif
 #ifdef WITH_IPv6
-            auto ipv6 = dynamic_cast<INetfilter *>(getModuleByPath("^.ipv6.ipv6"));
+            auto ipv6 = dynamic_cast<INetfilter *>(findModuleByPath("^.ipv6.ipv6"));
             if (ipv6 != nullptr)
                 ipv6->registerHook(0, &crcInsertion);
 #endif
@@ -171,8 +171,7 @@ void Tcp::handleLowerPacket(Packet *packet)
                 // This may be true only in receiver side. According to RFC 3168, page 20:
                 // pure acknowledgement packets (e.g., packets that do not contain
                 // any accompanying data) MUST be sent with the not-ECT codepoint.
-                if (ecn == 3)
-                    state->gotCeIndication = true;
+                state->gotCeIndication = (ecn == 3);
             }
 
             bool ret = conn->processTCPSegment(packet, tcpHeader, srcAddr, destAddr);

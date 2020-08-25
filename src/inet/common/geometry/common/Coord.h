@@ -142,7 +142,7 @@ class INET_API Coord
     /**
      * @brief Dot product
      */
-    float operator*(const Coord& v) const {
+    double operator*(const Coord& v) const {
         return x * v.x + y * v.y + z * v.z;
     }
 
@@ -321,14 +321,14 @@ class INET_API Coord
     /**
      * @brief Returns the minimal coordinates.
      */
-    Coord min(const Coord& a) {
+    Coord min(const Coord& a) const {
         return Coord(x < a.x ? x : a.x, y < a.y ? y : a.y, z < a.z ? z : a.z);
     }
 
     /**
      * @brief Returns the maximal coordinates.
      */
-    Coord max(const Coord& a) {
+    Coord max(const Coord& a) const {
         return Coord(x > a.x ? x : a.x, y > a.y ? y : a.y, z > a.z ? z : a.z);
     }
 

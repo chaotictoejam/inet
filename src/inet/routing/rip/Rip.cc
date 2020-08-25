@@ -140,7 +140,7 @@ void Rip::handleMessageWhenUp(cMessage *msg)
     if (msg->isSelfMessage()) {
         if (msg == updateTimer) {
             processUpdate(false);
-            scheduleAt(simTime() + updateInterval, msg);
+            scheduleAfter(updateInterval, msg);
         }
         else if (msg == triggeredUpdateTimer) {
             processUpdate(true);
@@ -232,7 +232,7 @@ void Rip::startRIPRouting()
             sendRIPRequest(elem);
 
     // set update timer
-    scheduleAt(simTime() + updateInterval, updateTimer);
+    scheduleAfter(updateInterval, updateTimer);
 }
 
 void Rip::stopRIPRouting()
@@ -414,8 +414,7 @@ void Rip::receiveSignal(cComponent *source, simsignal_t signalID, cObject *obj, 
 
 void Rip::handleStartOperation(LifecycleOperation *operation)
 {
-    cancelEvent(startupTimer);
-    scheduleAt(simTime() + par("startupTime"), startupTimer);
+    rescheduleAfter(par("startupTime"), startupTimer);
 }
 
 void Rip::handleStopOperation(LifecycleOperation *operation)
@@ -430,7 +429,7 @@ void Rip::handleStopOperation(LifecycleOperation *operation)
     stopRIPRouting();
 
     // wait a few seconds before calling doneCallback, so that UDP can send the messages
-    scheduleAt(simTime() + shutdownTime, shutdownTimer);
+    scheduleAfter(shutdownTime, shutdownTimer);
     delayActiveOperationFinish(par("stopOperationTimeout"));
 }
 
@@ -897,13 +896,12 @@ void Rip::triggerUpdate()
 {
     if (triggeredUpdate && !triggeredUpdateTimer->isScheduled()) {
         double delay = par("triggeredUpdateDelay");
-        simtime_t updateTime = simTime() + delay;
         // Triggered updates may be suppressed if a regular
         // update is due by the time the triggered update would be sent.
-        if (!updateTimer->isScheduled() || updateTimer->getArrivalTime() > updateTime)
+        if (!updateTimer->isScheduled() || updateTimer->getArrivalTime() > simTime() + delay)
         {
             EV_DETAIL << "scheduling triggered update \n";
-            scheduleAt(updateTime, triggeredUpdateTimer);
+            scheduleAfter(delay, triggeredUpdateTimer);
         }
     }
 }

@@ -35,13 +35,13 @@ Define_Module(OsgEarthGround);
 
 void OsgEarthGround::initialize()
 {
-    auto sceneVisualizer = getModuleFromPar<SceneOsgEarthVisualizer>(par("osgEarthSceneVisualizerModule"), this, true);
+    auto sceneVisualizer = getModuleFromPar<SceneOsgEarthVisualizer>(par("osgEarthSceneVisualizerModule"), this);
     map = sceneVisualizer->getMapNode()->getMap();
     elevationQuery = new osgEarth::ElevationQuery(map);
     coordinateSystem = getModuleFromPar<IGeographicCoordinateSystem>(par("coordinateSystemModule"), this);
 }
 
-Coord OsgEarthGround::computeGroundProjection(const Coord &position) const
+Coord OsgEarthGround::computeGroundProjection(const Coord& position) const
 {
     double elevation = 0;
     auto geoCoord = coordinateSystem->computeGeographicCoordinate(position);
@@ -54,7 +54,7 @@ Coord OsgEarthGround::computeGroundProjection(const Coord &position) const
     return coordinateSystem->computeSceneCoordinate(geoCoord);
 }
 
-Coord OsgEarthGround::computeGroundNormal(const Coord &position) const
+Coord OsgEarthGround::computeGroundNormal(const Coord& position) const
 {
     // we take 3 samples, one at position, and 2 at a distance from it in different directions
     // then compute a cross product to get the normal

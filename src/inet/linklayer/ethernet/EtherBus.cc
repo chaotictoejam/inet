@@ -95,7 +95,7 @@ void EtherBus::initialize()
 
     // ensure we receive frames when their first bits arrive
     for (int i = 0; i < numTaps; i++)
-        gate(inputGateBaseId + i)->setDeliverOnReceptionStart(true);
+        gate(inputGateBaseId + i)->setDeliverImmediately(true);
     subscribe(POST_MODEL_CHANGE, this);    // we'll need to do the same for dynamically added gates as well
 
     checkConnections(true);
@@ -210,14 +210,14 @@ void EtherBus::handleMessage(cMessage *msg)
             cMessage *msg2 = (tapPoint < numTaps - 1) ? msg->dup() : msg;
             msg2->setKind(UPSTREAM);
             msg2->setContextPointer(&tap[tapPoint - 1]);
-            scheduleAt(simTime() + tap[tapPoint].propagationDelay[UPSTREAM], msg2);
+            scheduleAfter(tap[tapPoint].propagationDelay[UPSTREAM], msg2);
         }
 
         if (tapPoint < numTaps - 1) {
             // start DOWNSTREAM travel
             msg->setKind(DOWNSTREAM);
             msg->setContextPointer(&tap[tapPoint + 1]);
-            scheduleAt(simTime() + tap[tapPoint].propagationDelay[DOWNSTREAM], msg);
+            scheduleAfter(tap[tapPoint].propagationDelay[DOWNSTREAM], msg);
         }
 
         if (numTaps == 1) {
@@ -259,7 +259,7 @@ void EtherBus::handleMessage(cMessage *msg)
             EV << "Scheduling for next tap\n";
             int nextTap = (direction == UPSTREAM) ? (tapPoint - 1) : (tapPoint + 1);
             msg->setContextPointer(&tap[nextTap]);
-            scheduleAt(simTime() + tap[tapPoint].propagationDelay[direction], msg);
+            scheduleAfter(tap[tapPoint].propagationDelay[direction], msg);
         }
     }
 }

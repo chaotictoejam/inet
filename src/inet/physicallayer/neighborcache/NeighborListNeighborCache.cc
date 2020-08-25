@@ -43,7 +43,7 @@ void NeighborListNeighborCache::initialize(int stage)
     else if (stage == INITSTAGE_PHYSICAL_LAYER_NEIGHBOR_CACHE) {
         maxSpeed = radioMedium->getMediumLimitCache()->getMaxSpeed().get();
         updateNeighborLists();
-        scheduleAt(simTime() + refillPeriod, updateNeighborListsTimer);
+        scheduleAfter(refillPeriod, updateNeighborListsTimer);
     }
 }
 
@@ -57,7 +57,7 @@ std::ostream& NeighborListNeighborCache::printToStream(std::ostream& stream, int
     return stream;
 }
 
-void NeighborListNeighborCache::sendToNeighbors(IRadio *transmitter, const ISignal *signal, double range) const
+void NeighborListNeighborCache::sendToNeighbors(IRadio *transmitter, const IWirelessSignal *signal, double range) const
 {
     if (this->range < range)
         throw cRuntimeError("The transmitter's (id: %d) range is bigger then the cache range", transmitter->getId());
@@ -80,7 +80,7 @@ void NeighborListNeighborCache::handleMessage(cMessage *msg)
 
     updateNeighborLists();
 
-    scheduleAt(simTime() + refillPeriod, msg);
+    scheduleAfter(refillPeriod, msg);
 }
 
 void NeighborListNeighborCache::updateNeighborList(RadioEntry *radioEntry)
@@ -108,7 +108,7 @@ void NeighborListNeighborCache::addRadio(const IRadio *radio)
     updateNeighborLists();
     maxSpeed = radioMedium->getMediumLimitCache()->getMaxSpeed().get();
     if (maxSpeed != 0 && !updateNeighborListsTimer->isScheduled() && initialized())
-        scheduleAt(simTime() + refillPeriod, updateNeighborListsTimer);
+        scheduleAfter(refillPeriod, updateNeighborListsTimer);
 }
 
 void NeighborListNeighborCache::removeRadio(const IRadio *radio)

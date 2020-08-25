@@ -49,7 +49,7 @@ void QuadTreeNeighborCache::initialize(int stage)
         quadTree = new QuadTree(constraintAreaMin, constraintAreaMax, maxNumOfPointsPerQuadrant, nullptr);
         maxSpeed = radioMedium->getMediumLimitCache()->getMaxSpeed().get();
         rebuildQuadTree();
-        scheduleAt(simTime() + refillPeriod, rebuildQuadTreeTimer);
+        scheduleAfter(refillPeriod, rebuildQuadTreeTimer);
     }
 }
 
@@ -58,7 +58,7 @@ void QuadTreeNeighborCache::handleMessage(cMessage *msg)
     if (!msg->isSelfMessage())
         throw cRuntimeError("This module only handles self messages");
     rebuildQuadTree();
-    scheduleAt(simTime() + refillPeriod, msg);
+    scheduleAfter(refillPeriod, msg);
 }
 
 std::ostream& QuadTreeNeighborCache::printToStream(std::ostream& stream, int level) const
@@ -77,7 +77,7 @@ void QuadTreeNeighborCache::addRadio(const IRadio *radio)
     Coord radioPos = radio->getAntenna()->getMobility()->getCurrentPosition();
     maxSpeed = radioMedium->getMediumLimitCache()->getMaxSpeed().get();
     if (maxSpeed != 0 && !rebuildQuadTreeTimer->isScheduled() && initialized())
-        scheduleAt(simTime() + refillPeriod, rebuildQuadTreeTimer);
+        scheduleAfter(refillPeriod, rebuildQuadTreeTimer);
     Coord newConstraintAreaMin = radioMedium->getMediumLimitCache()->getMinConstraintArea();
     Coord newConstraintAreaMax = radioMedium->getMediumLimitCache()->getMaxConstraintArea();
     // If the constraintArea changed we must rebuild the QuadTree
@@ -116,7 +116,7 @@ void QuadTreeNeighborCache::removeRadio(const IRadio *radio)
         throw cRuntimeError("You can't remove radio: %d because it is not in our radio container", radio->getId());
 }
 
-void QuadTreeNeighborCache::sendToNeighbors(IRadio *transmitter, const ISignal *signal, double range) const
+void QuadTreeNeighborCache::sendToNeighbors(IRadio *transmitter, const IWirelessSignal *signal, double range) const
 {
     double radius = range + refillPeriod * maxSpeed;
     Coord transmitterPos = transmitter->getAntenna()->getMobility()->getCurrentPosition();

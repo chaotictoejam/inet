@@ -32,15 +32,16 @@ class INET_API FacingMobility : public MobilityBase
     virtual int numInitStages() const override { return NUM_INIT_STAGES; }
     virtual void initialize(int stage) override;
     virtual void handleSelfMessage(cMessage *msg) override { throw cRuntimeError("Unknown self message"); }
+    virtual void handleParameterChange(const char *name) override;
 
   public:
-    virtual Coord getCurrentPosition() override { return lastPosition; }
-    virtual Coord getCurrentVelocity() override { return Coord::ZERO; }
-    virtual Coord getCurrentAcceleration() override { return Coord::ZERO; }
+    virtual const Coord& getCurrentPosition() override { return lastPosition; }
+    virtual const Coord& getCurrentVelocity() override { return Coord::ZERO; }
+    virtual const Coord& getCurrentAcceleration() override { return Coord::ZERO; }
 
-    virtual Quaternion getCurrentAngularPosition() override;
-    virtual Quaternion getCurrentAngularVelocity() override { return Quaternion::NIL; }
-    virtual Quaternion getCurrentAngularAcceleration() override { return Quaternion::NIL; }
+    virtual const Quaternion& getCurrentAngularPosition() override;
+    virtual const Quaternion& getCurrentAngularVelocity() override { return Quaternion::NIL; }
+    virtual const Quaternion& getCurrentAngularAcceleration() override { return Quaternion::NIL; }
 };
 
 } // namespace inet

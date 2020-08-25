@@ -32,7 +32,11 @@ void MessageDispatcher::initialize()
     WATCH_MAP(protocolToGateIndex);
 }
 
-void MessageDispatcher::arrived(cMessage *message, cGate *inGate, simtime_t t)
+#if OMNETPP_VERSION < 0x0600
+void MessageDispatcher::arrived(cMessage *message, cGate *inGate, simtime_t time)
+#else
+void MessageDispatcher::arrived(cMessage *message, cGate *inGate, const SendOptions& options, simtime_t time)
+#endif
 {
     Enter_Method_Silent();
     cGate *outGate = nullptr;
@@ -40,7 +44,11 @@ void MessageDispatcher::arrived(cMessage *message, cGate *inGate, simtime_t t)
         outGate = handlePacket(check_and_cast<Packet *>(message), inGate);
     else
         outGate = handleMessage(check_and_cast<Message *>(message), inGate);
-    outGate->deliver(message, t);
+#if OMNETPP_VERSION < 0x0600
+    outGate->deliver(message, time);
+#else
+    outGate->deliver(message, options, time);
+#endif
 }
 
 cGate *MessageDispatcher::handlePacket(Packet *packet, cGate *inGate)
@@ -52,7 +60,7 @@ cGate *MessageDispatcher::handlePacket(Packet *packet, cGate *inGate)
         if (it != socketIdToGateIndex.end())
             return gate("out", it->second);
         else
-            throw cRuntimeError("handlePacket(): Unknown socket, id = %d", socketId);
+            throw cRuntimeError("handlePacket(): Unknown socket, id = %d, sender = %s", socketId, inGate->getPathStartGate()->getOwnerModule()->getFullName());
     }
     auto dispatchProtocolReq = packet->findTag<DispatchProtocolReq>();;
     if (dispatchProtocolReq != nullptr) {
@@ -70,7 +78,7 @@ cGate *MessageDispatcher::handlePacket(Packet *packet, cGate *inGate)
         if (it != serviceToGateIndex.end())
             return gate("out", it->second);
         else
-            throw cRuntimeError("handlePacket(): Unknown protocol: id = %d, name = %s", protocol->getId(), protocol->getName());
+            throw cRuntimeError("handlePacket(): Unknown protocol: id = %d, name = %s, sender = %s", protocol->getId(), protocol->getName(), inGate->getPathStartGate()->getOwnerModule()->getFullName());
     }
     auto interfaceReq = packet->findTag<InterfaceReq>();
     if (interfaceReq != nullptr) {
@@ -79,9 +87,9 @@ cGate *MessageDispatcher::handlePacket(Packet *packet, cGate *inGate)
         if (it != interfaceIdToGateIndex.end())
             return gate("out", it->second);
         else
-            throw cRuntimeError("handlePacket(): Unknown interface: id = %d", interfaceId);
+            throw cRuntimeError("handlePacket(): Unknown interface: id = %d, sender = %s", interfaceId, inGate->getPathStartGate()->getOwnerModule()->getFullName());
     }
-    throw cRuntimeError("handlePacket(): Unknown packet: %s(%s)", packet->getName(), packet->getClassName());
+    throw cRuntimeError("handlePacket(): Unknown packet: %s(%s), sender = %s", packet->getName(), packet->getClassName(), inGate->getPathStartGate()->getOwnerModule()->getFullName());
 }
 
 cGate *MessageDispatcher::handleMessage(Message *message, cGate *inGate)
@@ -93,7 +101,7 @@ cGate *MessageDispatcher::handleMessage(Message *message, cGate *inGate)
         if (it == socketIdToGateIndex.end())
             socketIdToGateIndex[socketReqId] = inGate->getIndex();
         else if (it->first != socketReqId)
-            throw cRuntimeError("handleMessage(): Socket is already registered: id = %d, gate = %d, new gate = %d", socketReqId, it->second, inGate->getIndex());
+            throw cRuntimeError("handleMessage(): Socket is already registered: id = %d, gate = %d, new gate = %d (from %s)", socketReqId, it->second, inGate->getIndex(), inGate->getPathStartGate()->getOwnerModule()->getFullName());
     }
     auto socketInd = message->findTag<SocketInd>();
     if (socketInd != nullptr) {

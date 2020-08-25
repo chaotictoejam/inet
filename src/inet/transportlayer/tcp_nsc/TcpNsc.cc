@@ -240,12 +240,12 @@ void TcpNsc::initialize(int stage)
 
         if (crcMode == CRC_COMPUTED) {
 #ifdef WITH_IPv4
-            auto ipv4 = dynamic_cast<INetfilter *>(getModuleByPath("^.ipv4.ip"));
+            auto ipv4 = dynamic_cast<INetfilter *>(findModuleByPath("^.ipv4.ip"));
             if (ipv4 != nullptr)
                 ipv4->registerHook(0, &crcInsertion);
 #endif
 #ifdef WITH_IPv6
-            auto ipv6 = dynamic_cast<INetfilter *>(getModuleByPath("^.ipv6.ipv6"));
+            auto ipv6 = dynamic_cast<INetfilter *>(findModuleByPath("^.ipv6.ipv6"));
             if (ipv6 != nullptr)
                 ipv6->registerHook(0, &crcInsertion);
 #endif
@@ -655,7 +655,7 @@ void TcpNsc::handleMessage(cMessage *msgP)
            NSC timer processing
            ...
            Timers are ordinary cMessage objects that are started by
-           scheduleAt(simTime()+timeout, msg), and can be cancelled
+           scheduleAfter(timeout, msg), and can be cancelled
            via cancelEvent(msg); when they expire (fire) they are delivered
            to the module via handleMessage(), i.e. they end up here.
          */
@@ -666,7 +666,7 @@ void TcpNsc::handleMessage(cMessage *msgP)
 
             pStackM->timer_interrupt();
 
-            scheduleAt(msgP->getArrivalTime() + 1.0 / (double)pStackM->get_hz(), msgP);
+            scheduleAfter(1.0 / (double)pStackM->get_hz(), msgP);
         }
     }
     else if (msgP->arrivedOn("ipIn")) {
@@ -762,7 +762,7 @@ void TcpNsc::loadStack(const char *stacknameP, int bufferSizeP)
 
     // set timer for 1.0 / pStackM->get_hz()
     pNsiTimerM = new cMessage("nsc_nsi_timer");
-    scheduleAt(1.0 / (double)pStackM->get_hz(), pNsiTimerM);
+    scheduleAfter(1.0 / (double)pStackM->get_hz(), pNsiTimerM);
 }
 
 /** Called from the stack when a packet needs to be output to the wire. */

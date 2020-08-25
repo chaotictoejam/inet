@@ -63,19 +63,16 @@ INET_API cModule *findModuleUnderContainingNode(const cModule *from);
  * or type mismatch.
  */
 template<typename T>
-INET_API T *findModuleFromPar(cPar& par, const cModule *from, bool required = true);
+INET_API T *findModuleFromPar(cPar& par, const cModule *from);
 
 template<typename T>
-T *findModuleFromPar(cPar& par, const cModule *from, bool required)
+T *findModuleFromPar(cPar& par, const cModule *from)
 {
     const char *path = par;
     if (path && *path) {
-        cModule *mod = from->getModuleByPath(path);
+        cModule *mod = from->findModuleByPath(path);
         if (!mod) {
-            if (required)
-                throw cRuntimeError("Module not found on path '%s' defined by par '%s'", path, par.getFullPath().c_str());
-            else
-                return nullptr;
+            return nullptr;
         }
         T *m = dynamic_cast<T *>(mod);
         if (!m)
@@ -92,18 +89,15 @@ T *findModuleFromPar(cPar& par, const cModule *from, bool required)
  * or type mismatch.
  */
 template<typename T>
-INET_API T *getModuleFromPar(cPar& par, const cModule *from, bool required = true);
+INET_API T *getModuleFromPar(cPar& par, const cModule *from);
 
 template<typename T>
-T *getModuleFromPar(cPar& par, const cModule *from, bool required)
+T *getModuleFromPar(cPar& par, const cModule *from)
 {
     const char *path = par;
-    cModule *mod = from->getModuleByPath(path);
+    cModule *mod = from->findModuleByPath(path);
     if (!mod) {
-        if (required)
-            throw cRuntimeError("Module not found on path '%s' defined by par '%s'", path, par.getFullPath().c_str());
-        else
-            return nullptr;
+        throw cRuntimeError("Module not found on path '%s' defined by par '%s'", path, par.getFullPath().c_str());
     }
     T *m = dynamic_cast<T *>(mod);
     if (!m)
@@ -128,7 +122,7 @@ INET_API InterfaceEntry *getContainingNicModule(const cModule *from);
  * Returns nullptr if no such module is found along the path.
  */
 template<typename T>
-INET_API cGate *findConnectedGate(cGate *gate, int direction = 0)
+cGate *findConnectedGate(cGate *gate, int direction = 0)
 {
     if (!gate->isConnectedOutside())
         return nullptr;
@@ -155,7 +149,7 @@ INET_API cGate *findConnectedGate(cGate *gate, int direction = 0)
  * Throws an error if no such module is found along the path.
  */
 template<typename T>
-INET_API cGate *getConnectedGate(cGate *gate, int direction = 0)
+cGate *getConnectedGate(cGate *gate, int direction = 0)
 {
     auto connectedGate = findConnectedGate<T>(gate, direction);
     if (connectedGate == nullptr)
@@ -168,7 +162,7 @@ INET_API cGate *getConnectedGate(cGate *gate, int direction = 0)
  * Returns nullptr if no such module is found along the path.
  */
 template<typename T>
-INET_API T *findConnectedModule(cGate *gate, int direction = 0)
+T *findConnectedModule(cGate *gate, int direction = 0)
 {
     auto connectedGate = findConnectedGate<T>(gate, direction);
     return connectedGate != nullptr ? check_and_cast<T *>(connectedGate->getOwnerModule()) : nullptr;
@@ -179,7 +173,7 @@ INET_API T *findConnectedModule(cGate *gate, int direction = 0)
  * Throws an error if no such module is found along the path.
  */
 template<typename T>
-INET_API T *getConnectedModule(cGate *gate, int direction = 0)
+T *getConnectedModule(cGate *gate, int direction = 0)
 {
     auto module = findConnectedModule<T>(gate, direction);
     if (module == nullptr)

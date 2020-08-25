@@ -248,7 +248,6 @@ Packet* Ospfv3Interface::prepareHello()
     //Hello content
     helloPacket->setInterfaceID(this->interfaceId);
     helloPacket->setRouterPriority(this->getRouterPriority());
-    memset(&options, 0, sizeof(Ospfv3Options));
 
     options.rBit = true;
     options.v6Bit = true;
@@ -1766,7 +1765,6 @@ LinkLSA* Ospfv3Interface::originateLinkLSA()
     linkLSA->setRouterPriority(this->getRouterPriority());
     //TODO - LSA Options for LinkLSA is not set.
     Ospfv3Options lsOptions;
-    memset(&lsOptions, 0, sizeof(Ospfv3Options));
     linkLSA->setOspfOptions(lsOptions);
 
     InterfaceEntry* ie = CHK(this->ift->findInterfaceByName(this->interfaceName.c_str()));
@@ -1961,7 +1959,7 @@ std::string Ospfv3Interface::detailedInfo() const
     out << ipv6int->getLinkLocalAddress() << ", Interface ID " << this->interfaceId << "\n";
 
     if (this->getArea()->getInstance()->getAddressFamily() == IPV4INSTANCE) {
-        Ipv4InterfaceData* ipv4int = ie->findProtocolData<Ipv4InterfaceData>();
+        Ipv4InterfaceData* ipv4int = ie->getProtocolData<Ipv4InterfaceData>();
         out << "Internet Address " << ipv4int->getIPAddress() << endl;
     }
 

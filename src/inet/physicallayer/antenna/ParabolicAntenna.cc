@@ -54,13 +54,15 @@ ParabolicAntenna::AntennaGain::AntennaGain(double maxGain, double minGain, deg b
 {
 }
 
-double ParabolicAntenna::AntennaGain::computeGain(const Quaternion direction) const
+double ParabolicAntenna::AntennaGain::computeGain(const Quaternion& direction) const
 {
-    deg alpha = rad(std::acos(direction.rotate(Coord::X_AXIS) * Coord::X_AXIS));
+    double product = math::minnan(1.0, math::maxnan(-1.0, direction.rotate(Coord::X_AXIS) * Coord::X_AXIS));
+
+    deg alpha = rad(std::acos(product));
     ASSERT(deg(0) <= alpha && alpha <= deg(360));
     if (alpha > deg(180))
         alpha = deg(360) - alpha;
-    return std::max(minGain, maxGain * math::dB2fraction(-12 * pow(unit(alpha / beamWidth).get(), 2)));
+    return math::maxnan(minGain, maxGain * math::dB2fraction(-12 * pow(unit(alpha / beamWidth).get(), 2)));
 }
 
 } // namespace physicallayer

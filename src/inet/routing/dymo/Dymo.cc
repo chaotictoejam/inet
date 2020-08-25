@@ -74,6 +74,9 @@ Dymo::~Dymo()
 {
     for (auto & elem : targetAddressToRREQTimer)
         cancelAndDelete(elem.second);
+    for (auto & pkt_timer : packetJitterTimers){
+        cancelAndDelete(pkt_timer);
+    }
     cancelAndDelete(expungeTimer);
 }
 
@@ -164,6 +167,8 @@ void Dymo::processSelfMessage(cMessage *message)
         processRreqBackoffTimer(backoffTimer);
     else if (auto holddownTimer = dynamic_cast<RreqHolddownTimer *>(message))
         processRreqHolddownTimer(holddownTimer);
+    else if (auto jitterTimer = dynamic_cast<PacketJitterTimer *>(message))
+        processJitterTimerPacket(jitterTimer);
     else
         throw cRuntimeError("Unknown self message");
 }
@@ -300,7 +305,7 @@ void Dymo::scheduleRreqWaitRrepTimer(RreqWaitRrepTimer *message)
 {
     EV_DETAIL << "Scheduling RREQ wait RREP timer" << endl;
     targetAddressToRREQTimer[message->getTarget()] = message;
-    scheduleAt(simTime() + routeRREQWaitTime, message);
+    scheduleAfter(routeRREQWaitTime, message);
 }
 
 void Dymo::processRreqWaitRrepTimer(RreqWaitRrepTimer *message)
@@ -310,6 +315,7 @@ void Dymo::processRreqWaitRrepTimer(RreqWaitRrepTimer *message)
     if (message->getRetryCount() == discoveryAttemptsMax - 1) {
         cancelRouteDiscovery(target);
         cancelRreqTimer(target);
+        deleteRreqTimer(target);
         eraseRreqTimer(target);
         scheduleRreqHolddownTimer(createRreqHolddownTimer(target));
     }
@@ -334,7 +340,7 @@ void Dymo::scheduleRreqBackoffTimer(RreqBackoffTimer *message)
 {
     EV_DETAIL << "Scheduling RREQ backoff timer" << endl;
     targetAddressToRREQTimer[message->getTarget()] = message;
-    scheduleAt(simTime() + computeRreqBackoffTime(message->getRetryCount()), message);
+    scheduleAfter(computeRreqBackoffTime(message->getRetryCount()), message);
 }
 
 void Dymo::processRreqBackoffTimer(RreqBackoffTimer *message)
@@ -364,7 +370,7 @@ void Dymo::scheduleRreqHolddownTimer(RreqHolddownTimer *message)
 {
     EV_DETAIL << "Scheduling RREQ holddown timer" << endl;
     targetAddressToRREQTimer[message->getTarget()] = message;
-    scheduleAt(simTime() + rreqHolddownTime, message);
+    scheduleAfter(rreqHolddownTime, message);
 }
 
 void Dymo::processRreqHolddownTimer(RreqHolddownTimer *message)
@@ -381,12 +387,34 @@ void Dymo::processRreqHolddownTimer(RreqHolddownTimer *message)
 // handling Udp packets
 //
 
-void Dymo::sendUdpPacket(cPacket *packet, double delay)
+void Dymo::sendUdpPacket(cPacket *packet)
 {
+    send(packet, "ipOut");
+}
+
+void Dymo::scheduleJitterTimerPacket(cPacket *packet, double delay)
+{
+
     if (delay == 0)
-        send(packet, "ipOut");
-    else
-        sendDelayed(packet, delay, "ipOut");
+        sendUdpPacket(packet);
+    else{
+        PacketJitterTimer* message = new PacketJitterTimer("PacketJitterTimer");
+        message->setJitteredPacket(packet);
+        scheduleAfter(delay, message);
+        packetJitterTimers.insert(message);
+    }
+}
+
+void Dymo::processJitterTimerPacket(PacketJitterTimer *msg)
+{
+    sendUdpPacket(msg->dropJitteredPacket());
+    packetJitterTimers.erase(msg);
+    delete msg;
+}
+
+void Dymo::cancelJitterTimerPacket(PacketJitterTimer *msg){
+    packetJitterTimers.erase(msg);
+    cancelAndDelete(msg);
 }
 
 void Dymo::processUdpPacket(Packet *packet)
@@ -422,7 +450,7 @@ void Dymo::sendDymoPacket(const Ptr<DymoPacket>& packet, const InterfaceEntry *i
     udpPacket->addTag<HopLimitReq>()->setHopLimit(255);
     udpPacket->insertAtFront(udpHeader);
     udpPacket->insertAtBack(packet);
-    sendUdpPacket(udpPacket, delay);
+    scheduleJitterTimerPacket(udpPacket, delay);
 }
 
 void Dymo::processDymoPacket(Packet *packet, const Ptr<const DymoPacket>& dymoPacket)
@@ -1200,8 +1228,7 @@ void Dymo::scheduleExpungeTimer()
             scheduleAt(nextExpungeTime, expungeTimer);
         else {
             if (expungeTimer->getArrivalTime() != nextExpungeTime) {
-                cancelEvent(expungeTimer);
-                scheduleAt(nextExpungeTime, expungeTimer);
+                rescheduleAt(nextExpungeTime, expungeTimer);
             }
         }
     }
@@ -1405,15 +1432,28 @@ void Dymo::handleStartOperation(LifecycleOperation *operation)
 void Dymo::handleStopOperation(LifecycleOperation *operation)
 {
     // TODO: send a RERR to notify peers about broken routes
-    for (auto & elem : targetAddressToRREQTimer)
+    for (auto & elem : targetAddressToRREQTimer) {
         cancelRouteDiscovery(elem.first);
+        cancelAndDelete(elem.second);
+    }
+    targetAddressToRREQTimer.clear();
+    for (auto & pkt_timer : packetJitterTimers)
+        cancelAndDelete(pkt_timer);
+    packetJitterTimers.clear();
 }
 
 void Dymo::handleCrashOperation(LifecycleOperation *operation)
 {
     targetAddressToSequenceNumber.clear();
+    for (auto & elem : targetAddressToRREQTimer)
+        cancelAndDelete(elem.second);
     targetAddressToRREQTimer.clear();
+    for (auto & elem : targetAddressToDelayedPackets)
+        delete elem.second;
     targetAddressToDelayedPackets.clear();
+    for (auto & pkt_timer : packetJitterTimers)
+        cancelAndDelete(pkt_timer);
+    packetJitterTimers.clear();
 }
 
 //

@@ -95,7 +95,7 @@ void XMac::initialize(int stage)
         delay_for_ack_within_remote_rx = new cMessage("delay_for_ack_within_remote_rx", DELAY_FOR_ACK_WITHIN_REMOTE_RX);
         switching_done = new cMessage("switching_done", XMAC_SWITCHING_FINISHED);
 
-        scheduleAt(simTime(), start_xmac);
+        scheduleAfter(SIMTIME_ZERO, start_xmac);
     }
 }
 
@@ -169,8 +169,7 @@ void XMac::handleUpperPacket(Packet *packet)
               << macState << endl;
     // force wakeup now
     if (!txQueue->isEmpty() && wakeup->isScheduled() && (macState == SLEEP)) {
-        cancelEvent(wakeup);
-        scheduleAt(simTime() + dblrand()*0.01f, wakeup);
+        rescheduleAfter(dblrand()*0.01f, wakeup);
     }
 }
 
@@ -225,7 +224,7 @@ void XMac::handleSelfMessage(cMessage *msg)
             changeDisplayColor(BLACK);
             radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
             macState = SLEEP;
-            scheduleAt(simTime()+dblrand()*slotDuration, wakeup);
+            scheduleAfter(dblrand()*slotDuration, wakeup);
             return;
         }
         break;
@@ -235,7 +234,7 @@ void XMac::handleSelfMessage(cMessage *msg)
                     simTime() << " to " << simTime() + 1.7f * checkInterval << endl;
             // this CCA is useful when in RX to detect preamble and has to make room for
             // 0.2f = Tx switch, 0.5f = Tx send_preamble, 1f = time_for_ack_back
-            scheduleAt(simTime() + 1.7f * checkInterval, cca_timeout);
+            scheduleAfter(1.7f * checkInterval, cca_timeout);
             radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
             changeDisplayColor(GREEN);
             macState = CCA;
@@ -260,15 +259,15 @@ void XMac::handleSelfMessage(cMessage *msg)
                 changeDisplayColor(YELLOW);
                 macState = SEND_PREAMBLE;
                 // We send the preamble for a whole SLOT duration :)
-                scheduleAt(simTime() + slotDuration, stop_preambles);
+                scheduleAfter(slotDuration, stop_preambles);
                 // if 0.2f * CI = 2ms to switch to TX -> has to be accounted for RX_preamble_detection
-                scheduleAt(simTime() + 0.2f * checkInterval, switch_preamble_phase);
+                scheduleAfter(0.2f * checkInterval, switch_preamble_phase);
                 return;
             }
             // if anything to send, go back to sleep and wake up after a full period
             else
             {
-                scheduleAt(simTime() + slotDuration, wakeup);
+                scheduleAfter(slotDuration, wakeup);
                 macState = SLEEP;
                 radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
                 changeDisplayColor(BLACK);
@@ -295,7 +294,7 @@ void XMac::handleSelfMessage(cMessage *msg)
                 EV << "node " << address << " : State CCA, message XMAC_PREAMBLE not for me." << endl;
                 //~ better overhearing management? :)
                 cancelEvent(cca_timeout);
-                scheduleAt(simTime() + slotDuration, wakeup);
+                scheduleAfter(slotDuration, wakeup);
                 macState = SLEEP;
                 radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
                 changeDisplayColor(BLACK);
@@ -324,7 +323,7 @@ void XMac::handleSelfMessage(cMessage *msg)
                 cancelEvent(switch_preamble_phase);
                 cancelEvent(stop_preambles);
                 macState = WAIT_DATA;
-                scheduleAt(simTime(), msg);
+                scheduleAfter(SIMTIME_ZERO, msg);
             }
             return;
         }
@@ -338,14 +337,14 @@ void XMac::handleSelfMessage(cMessage *msg)
                 radio->setRadioMode(IRadio::RADIO_MODE_TRANSMITTER);
                 changeDisplayColor(YELLOW);
                 EV_DEBUG << "node " << address << " : preamble_phase tx, simTime = " << simTime() << endl;
-                scheduleAt(simTime() + 0.5f * checkInterval, switch_preamble_phase);
+                scheduleAfter(0.5f * checkInterval, switch_preamble_phase);
             }
             // 1.0f* = 10ms
             else if (radio->getRadioMode() == IRadio::RADIO_MODE_TRANSMITTER) {
                 radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
                 changeDisplayColor(GREEN);
                 EV_DEBUG << "node " << address << " : preamble_phase rx, simTime = " << simTime() << endl;
-                scheduleAt(simTime() + 1.0f *checkInterval, switch_preamble_phase);
+                scheduleAfter(1.0f *checkInterval, switch_preamble_phase);
             }
             return;
         }
@@ -419,9 +418,9 @@ void XMac::handleSelfMessage(cMessage *msg)
             deleteCurrentTxFrame();
             // if something in the queue, wakeup soon.
             if (!txQueue->isEmpty())
-                scheduleAt(simTime() + dblrand()*checkInterval, wakeup);
+                scheduleAfter(dblrand()*checkInterval, wakeup);
             else
-                scheduleAt(simTime() + slotDuration, wakeup);
+                scheduleAfter(slotDuration, wakeup);
             macState = SLEEP;
             radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
             changeDisplayColor(BLACK);
@@ -456,9 +455,9 @@ void XMac::handleSelfMessage(cMessage *msg)
 
                 // if something in the queue, wakeup soon.
                 if (!txQueue->isEmpty())
-                    scheduleAt(simTime() + dblrand()*checkInterval, wakeup);
+                    scheduleAfter(dblrand()*checkInterval, wakeup);
                 else
-                    scheduleAt(simTime() + slotDuration, wakeup);
+                    scheduleAfter(slotDuration, wakeup);
                 macState = SLEEP;
                 radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
                 changeDisplayColor(BLACK);
@@ -478,9 +477,9 @@ void XMac::handleSelfMessage(cMessage *msg)
             EV << "node " << address << " : State WAIT_DATA, message XMAC_DATA_TIMEOUT, new state SLEEP" << endl;
             // if something in the queue, wakeup soon.
             if (!txQueue->isEmpty())
-                scheduleAt(simTime() + dblrand()*checkInterval, wakeup);
+                scheduleAfter(dblrand()*checkInterval, wakeup);
             else
-                scheduleAt(simTime() + slotDuration, wakeup);
+                scheduleAfter(slotDuration, wakeup);
             macState = SLEEP;
             radio->setRadioMode(IRadio::RADIO_MODE_SLEEP);
             changeDisplayColor(BLACK);
@@ -503,7 +502,7 @@ void XMac::handleSelfMessage(cMessage *msg)
             changeDisplayColor(GREEN);
             macState = WAIT_DATA;
             cancelEvent(cca_timeout);
-            scheduleAt(simTime() + (slotDuration / 2), data_timeout);
+            scheduleAfter((slotDuration / 2), data_timeout);
             radio->setRadioMode(IRadio::RADIO_MODE_RECEIVER);
             return;
         }
@@ -556,10 +555,10 @@ void XMac::receiveSignal(cComponent *source, simsignal_t signalID, intval_t valu
         if (transmissionState == IRadio::TRANSMISSION_STATE_TRANSMITTING && newRadioTransmissionState == IRadio::TRANSMISSION_STATE_IDLE) {
             // Transmission of one packet is over
             if (macState == WAIT_TX_DATA_OVER) {
-                scheduleAt(simTime(), data_tx_over);
+                scheduleAfter(SIMTIME_ZERO, data_tx_over);
             }
             if (macState == WAIT_ACK_TX) {
-                scheduleAt(simTime(), ack_tx_over);
+                scheduleAfter(SIMTIME_ZERO, ack_tx_over);
             }
         }
         transmissionState = newRadioTransmissionState;
@@ -567,13 +566,13 @@ void XMac::receiveSignal(cComponent *source, simsignal_t signalID, intval_t valu
     else if (signalID ==IRadio::radioModeChangedSignal) {
         // Radio switching (to RX or TX) is over, ignore switching to SLEEP.
         if (macState == SEND_PREAMBLE) {
-            scheduleAt(simTime(), switching_done);
+            scheduleAfter(SIMTIME_ZERO, switching_done);
         }
         else if (macState == SEND_ACK) {
-            scheduleAt(simTime() + 0.5f * checkInterval, delay_for_ack_within_remote_rx);
+            scheduleAfter(0.5f * checkInterval, delay_for_ack_within_remote_rx);
         }
         else if (macState == SEND_DATA) {
-            scheduleAt(simTime(), switching_done);
+            scheduleAfter(SIMTIME_ZERO, switching_done);
         }
     }
 }

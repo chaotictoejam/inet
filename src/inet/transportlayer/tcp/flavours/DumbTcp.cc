@@ -69,7 +69,7 @@ void DumbTcp::processTimer(cMessage *timer, TcpEventCode& event)
         throw cRuntimeError(timer, "unrecognized timer");
 
     conn->retransmitData();
-    conn->scheduleTimeout(rexmitTimer, REXMIT_TIMEOUT);
+    conn->scheduleAfter(REXMIT_TIMEOUT, rexmitTimer);
 }
 
 void DumbTcp::sendCommandInvoked()
@@ -116,10 +116,12 @@ void DumbTcp::ackSent()
 
 void DumbTcp::dataSent(uint32 fromseq)
 {
-    if (rexmitTimer->isScheduled())
-        conn->cancelEvent(rexmitTimer);
-
-    conn->scheduleTimeout(rexmitTimer, REXMIT_TIMEOUT);
+#if OMNETPP_VERSION < 0x0600
+    conn->cancelEvent(rexmitTimer);
+    conn->scheduleAfter(REXMIT_TIMEOUT, rexmitTimer);
+#else
+    conn->rescheduleAfter(REXMIT_TIMEOUT, rexmitTimer);
+#endif
 }
 
 void DumbTcp::segmentRetransmitted(uint32 fromseq, uint32 toseq)
@@ -134,7 +136,15 @@ void DumbTcp::rttMeasurementCompleteUsingTS(uint32 echoedTS)
 {
 }
 
-} // namespace tcp
+bool DumbTcp::shouldMarkAck()
+{
+    return false;
+}
 
+void DumbTcp::processEcnInEstablished()
+{
+}
+
+} // namespace tcp
 } // namespace inet
 
