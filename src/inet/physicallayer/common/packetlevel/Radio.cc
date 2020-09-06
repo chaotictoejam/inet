@@ -55,7 +55,7 @@ void Radio::initialize(int stage)
         upperLayerIn = gate("upperLayerIn");
         upperLayerOut = gate("upperLayerOut");
         radioIn = gate("radioIn");
-        radioIn->setDeliverOnReceptionStart(true);
+        radioIn->setDeliverImmediately(true);
         sendRawBytes = par("sendRawBytes");
         separateTransmissionParts = par("separateTransmissionParts");
         separateReceptionParts = par("separateReceptionParts");
@@ -400,10 +400,9 @@ WirelessSignal *Radio::createSignal(Packet *packet) const
     encapsulate(packet);
     if (sendRawBytes) {
         // TODO: this doesn't always work, because the packet length may not be divisible by 8
-        auto rawPacket = new Packet(packet->getName(), packet->peekAllAsBytes());
-        rawPacket->copyTags(*packet);
-        delete packet;
-        packet = rawPacket;
+        auto bytes = packet->peekDataAsBytes();
+        packet->eraseAll();
+        packet->insertAtFront(bytes);
     }
     WirelessSignal *signal = check_and_cast<WirelessSignal *>(medium->transmitPacket(this, packet));
     ASSERT(signal->getDuration() != 0);
